@@ -48,6 +48,11 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Scroll Progress Indicator */}
+      <div className="scroll-progress fixed top-0 left-0 w-full h-1 bg-primary/20 z-50">
+        <div className="scroll-progress h-full bg-primary origin-left transform scale-x-0 transition-transform duration-150"></div>
+      </div>
+      
       <Navigation />
       <HeroSection />
       <ProblemSection />
