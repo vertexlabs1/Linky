@@ -21,12 +21,7 @@ const HeroSection = () => {
   const heroMascotScale = Math.max(0.3, 1 - (scrollY / 400));
 
   return (
-    <section id="home" className="relative min-h-screen flex items-center bg-gradient-hero overflow-hidden pt-20">
-      {/* Background Elements */}
-      <div className="absolute inset-0 bg-gradient-to-r from-background/20 to-transparent" />
-      <div className="absolute top-1/4 right-10 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-1/4 left-10 w-48 h-48 bg-accent/10 rounded-full blur-2xl animate-pulse delay-1000" />
-
+    <section id="home" className="relative min-h-screen flex items-center bg-background overflow-hidden pt-20">
       <div className="container mx-auto px-6 lg:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-between max-w-7xl mx-auto min-h-[80vh]">
           {/* Hero Mascot - Left Side */}
@@ -36,8 +31,8 @@ const HeroSection = () => {
               alt="Linky Robot" 
               className="object-contain transition-smooth"
               style={{
-                width: '400px',
-                height: '400px',
+                width: '500px',
+                height: '500px',
                 opacity: heroMascotOpacity,
                 transform: `scale(${heroMascotScale}) translateY(${scrollY * 0.05}px)`
               }}
@@ -45,18 +40,36 @@ const HeroSection = () => {
           </div>
 
           {/* Content - Right Side */}
-          <div className="lg:w-1/2 text-center lg:text-left space-y-6">
+          <div className="lg:w-1/2 text-center lg:text-left space-y-8">
+            {/* Social Proof Badge */}
+            <div className="inline-flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 shadow-sm">
+              <div className="flex items-center gap-1">
+                <span className="text-2xl font-bold text-primary">134+</span>
+                <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M7 14l3-3 3 3 5-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <span className="text-sm text-muted-foreground">Leads Generated</span>
+            </div>
+
             {/* Main Headline */}
-            <h1 className="text-4xl lg:text-6xl font-bold text-foreground leading-tight">
-              Turn LinkedIn Likes into{' '}
+            <h1 className="text-5xl lg:text-7xl font-bold text-foreground leading-tight">
+              LinkedIn Likes into{' '}
               <span className="text-primary">Real Leads</span>
             </h1>
 
             {/* Subheadline */}
-            <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-2xl">
+            <p className="text-xl lg:text-2xl text-muted-foreground leading-relaxed max-w-2xl">
               Your AI-Powered LinkedIn Wingman: Track engagements, score leads, 
               generate comments, and automate outreach without the hassle.
             </p>
+
+            {/* CTA Button */}
+            <div className="pt-4">
+              <button className="bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-lg px-8 py-4 rounded-full transition-smooth shadow-lg hover:shadow-xl">
+                Sign Up Free
+              </button>
+            </div>
           </div>
         </div>
         
