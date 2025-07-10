@@ -21,7 +21,12 @@ const HeroSection = () => {
   const heroMascotScale = Math.max(0.3, 1 - (scrollY / 400));
 
   return (
-    <section id="home" className="relative min-h-screen flex items-center bg-background overflow-hidden pt-20">
+    <section id="home" className="relative min-h-screen flex items-center bg-gradient-unified overflow-hidden pt-20">
+      {/* Unified Background Elements */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
+      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-primary/8 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-accent/6 rounded-full blur-2xl" />
+      
       <div className="container mx-auto px-6 lg:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-between max-w-7xl mx-auto min-h-[80vh]">
           {/* Hero Mascot - Left Side */}
@@ -41,17 +46,6 @@ const HeroSection = () => {
 
           {/* Content - Right Side */}
           <div className="lg:w-1/2 text-center lg:text-left space-y-8">
-            {/* Social Proof Badge */}
-            <div className="inline-flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 shadow-sm">
-              <div className="flex items-center gap-1">
-                <span className="text-2xl font-bold text-primary">134+</span>
-                <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M7 14l3-3 3 3 5-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <span className="text-sm text-muted-foreground">Leads Generated</span>
-            </div>
-
             {/* Main Headline */}
             <h1 className="text-5xl lg:text-7xl font-bold text-foreground leading-tight">
               LinkedIn Likes into{' '}
