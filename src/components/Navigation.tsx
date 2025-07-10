@@ -16,8 +16,9 @@ const Navigation = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Calculate mascot size based on scroll (starts small, grows as user scrolls)
-  const mascotScale = Math.min(1, scrollY / 200); // Fully grown at 200px scroll
+  // Navigation mascot appears as hero mascot fades (starts invisible, grows as user scrolls)
+  const mascotOpacity = Math.min(1, Math.max(0, (scrollY - 100) / 100)); // Starts appearing at 100px scroll
+  const mascotScale = Math.min(1, Math.max(0, (scrollY - 100) / 100)); // Grows from 0 to 1
   const isScrolled = scrollY > 50;
 
   return (
@@ -32,8 +33,10 @@ const Navigation = () => {
                 alt="Linky Robot" 
                 className="transition-smooth hover:scale-110"
                 style={{
-                  opacity: mascotScale,
-                  transform: `scale(${0.2 + (0.8 * mascotScale)})`
+                  width: '60px',
+                  height: '60px',
+                  opacity: mascotOpacity,
+                  transform: `scale(${mascotScale})`
                 }}
               />
             </div>

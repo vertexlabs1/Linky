@@ -30,21 +30,18 @@ const HeroSection = () => {
       <div className="container mx-auto px-6 lg:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-between max-w-7xl mx-auto min-h-[80vh]">
           {/* Hero Mascot - Left Side */}
-          <div className="flex flex-col items-center lg:items-start lg:w-1/2 mb-8 lg:mb-0">
-            <h2 className="text-6xl lg:text-8xl font-bold text-primary mb-4">Linky</h2>
-            <div className="flex justify-center lg:justify-start">
-              <img 
-                src="/lovable-uploads/04fea3ee-d055-40e5-9dae-0428d4e3487b.png" 
-                alt="Linky Robot" 
-                className="object-contain transition-smooth"
-                style={{
-                  width: '320px',
-                  height: '320px',
-                  opacity: heroMascotOpacity,
-                  transform: `scale(${heroMascotScale}) translateY(${scrollY * 0.05}px)`
-                }}
-              />
-            </div>
+          <div className="flex justify-center lg:justify-start lg:w-1/2 mb-8 lg:mb-0">
+            <img 
+              src="/lovable-uploads/04fea3ee-d055-40e5-9dae-0428d4e3487b.png" 
+              alt="Linky Robot" 
+              className="object-contain transition-smooth"
+              style={{
+                width: '400px',
+                height: '400px',
+                opacity: heroMascotOpacity,
+                transform: `scale(${heroMascotScale}) translateY(${scrollY * 0.05}px)`
+              }}
+            />
           </div>
 
           {/* Content - Right Side */}
