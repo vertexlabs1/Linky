@@ -22,11 +22,7 @@ const Navigation = () => {
 
   return (
     <>
-      <nav className={`fixed top-0 w-full z-50 transition-smooth ${
-        isScrolled 
-          ? 'bg-background/95 backdrop-blur-md border-b border-border' 
-          : 'bg-transparent'
-      }`}>
+      <nav className="fixed top-0 w-full z-50 transition-smooth bg-transparent">
         <div className="container mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
@@ -34,12 +30,10 @@ const Navigation = () => {
               <img 
                 src="/lovable-uploads/04fea3ee-d055-40e5-9dae-0428d4e3487b.png" 
                 alt="Linky Robot" 
-                className="transition-smooth hover:scale-110"
+                className="h-8 w-8 transition-smooth hover:scale-110"
                 style={{
-                  height: `${12 + (20 * mascotScale)}px`,
-                  width: `${12 + (20 * mascotScale)}px`,
                   opacity: mascotScale,
-                  transform: `scale(${0.3 + (0.7 * mascotScale)})`
+                  transform: `scale(${0.2 + (0.8 * mascotScale)})`
                 }}
               />
             </div>

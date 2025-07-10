@@ -1,28 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Play, TrendingUp } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const HeroSection = () => {
-  const [leadsCount, setLeadsCount] = useState(0);
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
-    // Animate counter
-    const targetCount = 134;
-    const duration = 2000;
-    const increment = targetCount / (duration / 50);
-    
-    const timer = setInterval(() => {
-      setLeadsCount(prev => {
-        const next = prev + increment;
-        if (next >= targetCount) {
-          clearInterval(timer);
-          return targetCount;
-        }
-        return next;
-      });
-    }, 50);
-
     // Track scroll for mascot animation
     const handleScroll = () => {
       setScrollY(window.scrollY);
@@ -31,14 +14,13 @@ const HeroSection = () => {
     window.addEventListener('scroll', handleScroll);
 
     return () => {
-      clearInterval(timer);
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
   // Calculate hero mascot scale (starts large, shrinks and fades as user scrolls)
-  const heroMascotOpacity = Math.max(0, 1 - (scrollY / 300));
-  const heroMascotScale = Math.max(0.5, 1 - (scrollY / 600));
+  const heroMascotOpacity = Math.max(0, 1 - (scrollY / 200));
+  const heroMascotScale = Math.max(0.3, 1 - (scrollY / 400));
 
   return (
     <section id="home" className="relative min-h-screen flex items-center bg-gradient-hero overflow-hidden pt-20">
@@ -48,18 +30,16 @@ const HeroSection = () => {
       <div className="absolute bottom-1/4 left-10 w-48 h-48 bg-accent/10 rounded-full blur-2xl animate-pulse delay-1000" />
 
       <div className="container mx-auto px-6 lg:px-8 relative z-10">
-        <div className="max-w-4xl mx-auto text-center space-y-12">
+        <div className="max-w-4xl mx-auto text-center space-y-8">
           {/* Hero Mascot */}
           <div className="flex justify-center mb-8">
             <img 
               src="/lovable-uploads/04fea3ee-d055-40e5-9dae-0428d4e3487b.png" 
               alt="Linky Robot" 
-              className="transition-smooth"
+              className="h-48 w-48 lg:h-60 lg:w-60 transition-smooth"
               style={{
-                height: `${120 * heroMascotScale}px`,
-                width: `${120 * heroMascotScale}px`,
                 opacity: heroMascotOpacity,
-                transform: `scale(${heroMascotScale}) translateY(${scrollY * 0.1}px)`
+                transform: `scale(${heroMascotScale}) translateY(${scrollY * 0.05}px)`
               }}
             />
           </div>
@@ -76,18 +56,6 @@ const HeroSection = () => {
             generate comments, and automate outreach without the hassle.
           </p>
 
-          {/* Social Proof */}
-          <div className="flex items-center justify-center space-x-4 bg-card/50 backdrop-blur-sm rounded-lg px-6 py-4 shadow-card max-w-md mx-auto">
-            <TrendingUp className="h-8 w-8 text-primary animate-pulse" />
-            <div>
-              <div className="text-3xl font-bold text-foreground">
-                {Math.floor(leadsCount)}+
-              </div>
-              <div className="text-muted-foreground font-medium">
-                Leads Generated
-              </div>
-            </div>
-          </div>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
@@ -108,7 +76,7 @@ const HeroSection = () => {
           </div>
 
           {/* Demo Video */}
-          <div className="pt-12 max-w-4xl mx-auto">
+          <div className="pt-8 max-w-2xl mx-auto">
             <div className="relative bg-card rounded-xl shadow-card overflow-hidden hover-lift">
               <iframe
                 className="w-full aspect-video"
