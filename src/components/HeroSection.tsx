@@ -23,9 +23,9 @@ const HeroSection = () => {
   return (
     <section id="home" className="relative min-h-screen flex items-center bg-gradient-unified overflow-hidden pt-20">
       {/* Unified Background Elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
-      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-primary/8 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-accent/6 rounded-full blur-2xl" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/20" />
+      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-primary/25 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-accent/20 rounded-full blur-2xl" />
       
       <div className="container mx-auto px-6 lg:px-8 relative z-10">
         <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-between max-w-7xl mx-auto min-h-[80vh]">
