@@ -30,7 +30,7 @@ const Navigation = () => {
               <img 
                 src="/lovable-uploads/04fea3ee-d055-40e5-9dae-0428d4e3487b.png" 
                 alt="Linky Robot" 
-                className="h-8 w-8 transition-smooth hover:scale-110"
+                className="transition-smooth hover:scale-110"
                 style={{
                   opacity: mascotScale,
                   transform: `scale(${0.2 + (0.8 * mascotScale)})`
@@ -48,7 +48,7 @@ const Navigation = () => {
                 Login
               </Button>
               <Button 
-                className="font-semibold bg-accent hover:bg-accent/90 text-accent-foreground"
+                className="font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6"
                 onClick={() => setIsSignUpOpen(true)}
               >
                 Sign Up Free
