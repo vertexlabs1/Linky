@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 
 const HeroSection = () => {
   const [leadsCount, setLeadsCount] = useState(0);
+  const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
     // Animate counter
@@ -22,8 +23,22 @@ const HeroSection = () => {
       });
     }, 50);
 
-    return () => clearInterval(timer);
+    // Track scroll for mascot animation
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
+
+  // Calculate hero mascot scale (starts large, shrinks and fades as user scrolls)
+  const heroMascotOpacity = Math.max(0, 1 - (scrollY / 300));
+  const heroMascotScale = Math.max(0.5, 1 - (scrollY / 600));
 
   return (
     <section id="home" className="relative min-h-screen flex items-center bg-gradient-hero overflow-hidden pt-20">
@@ -34,6 +49,21 @@ const HeroSection = () => {
 
       <div className="container mx-auto px-6 lg:px-8 relative z-10">
         <div className="max-w-4xl mx-auto text-center space-y-12">
+          {/* Hero Mascot */}
+          <div className="flex justify-center mb-8">
+            <img 
+              src="/lovable-uploads/04fea3ee-d055-40e5-9dae-0428d4e3487b.png" 
+              alt="Linky Robot" 
+              className="transition-smooth"
+              style={{
+                height: `${120 * heroMascotScale}px`,
+                width: `${120 * heroMascotScale}px`,
+                opacity: heroMascotOpacity,
+                transform: `scale(${heroMascotScale}) translateY(${scrollY * 0.1}px)`
+              }}
+            />
+          </div>
+
           {/* Main Headline */}
           <h1 className="text-5xl lg:text-7xl font-bold text-foreground leading-tight">
             Turn LinkedIn Likes into{' '}

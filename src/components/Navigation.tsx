@@ -3,18 +3,22 @@ import { Button } from '@/components/ui/button';
 import AuthModals from './AuthModals';
 
 const Navigation = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      setScrollY(window.scrollY);
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Calculate mascot size based on scroll (starts small, grows as user scrolls)
+  const mascotScale = Math.min(1, scrollY / 200); // Fully grown at 200px scroll
+  const isScrolled = scrollY > 50;
 
   return (
     <>
@@ -26,13 +30,18 @@ const Navigation = () => {
         <div className="container mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center">
               <img 
                 src="/lovable-uploads/04fea3ee-d055-40e5-9dae-0428d4e3487b.png" 
                 alt="Linky Robot" 
-                className="h-12 w-12 transition-smooth hover:scale-110"
+                className="transition-smooth hover:scale-110"
+                style={{
+                  height: `${12 + (20 * mascotScale)}px`,
+                  width: `${12 + (20 * mascotScale)}px`,
+                  opacity: mascotScale,
+                  transform: `scale(${0.3 + (0.7 * mascotScale)})`
+                }}
               />
-              <span className="text-3xl font-bold text-foreground">Linky</span>
             </div>
 
             {/* Auth Buttons */}
