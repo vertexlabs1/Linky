@@ -140,7 +140,12 @@ const HeroSection = () => {
         </div>
         
         {/* Demo Video */}
-        <div className={`pt-20 max-w-4xl mx-auto ${mounted ? 'fade-in-up' : 'opacity-0'}`}>
+        <div className={`pt-12 max-w-4xl mx-auto ${mounted ? 'fade-in-up' : 'opacity-0'}`}>
+          <div className="text-center mb-8">
+            <h3 className="text-2xl font-bold text-foreground mb-2">See Linky in Action</h3>
+            <p className="text-muted-foreground">Watch how easy it is to create and manage your LinkedIn automation</p>
+          </div>
+          
           <div className="relative bg-card rounded-3xl shadow-card overflow-hidden hover-lift border border-primary/10 group">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
             
@@ -172,7 +177,7 @@ const HeroSection = () => {
           
           {/* Video caption */}
           <p className="text-center text-muted-foreground mt-6 text-lg">
-            See how Linky transforms your LinkedIn presence in under 2 minutes
+            Transform your LinkedIn presence in under 2 minutes
           </p>
         </div>
       </div>
