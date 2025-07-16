@@ -1,73 +1,71 @@
-import { useState } from 'react';
-import { ArrowLeft, Settings, Bell, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import DashboardPreview from '@/components/DashboardPreview';
-import Navigation from '@/components/Navigation';
+import { Routes, Route } from 'react-router-dom';
+import DashboardLayout from '@/components/DashboardLayout';
+import LeadsPage from '@/components/LeadsPage';
+import TargetsPage from '@/components/TargetsPage';
 
 const Dashboard = () => {
-  const [user] = useState({
-    name: 'John Doe',
-    email: 'john@example.com',
-    plan: 'Builder'
-  });
-
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
+    <DashboardLayout>
+      <Routes>
+        <Route path="/" element={<DashboardHome />} />
+        <Route path="/leads" element={<LeadsPage />} />
+        <Route path="/targets" element={<TargetsPage />} />
+        <Route path="/content" element={<ContentEngine />} />
+      </Routes>
+    </DashboardLayout>
+  );
+};
+
+// Dashboard Home Component
+const DashboardHome = () => {
+  return (
+    <div className="container mx-auto px-6 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground">Welcome to Linky</h1>
+        <p className="text-muted-foreground">Your AI-powered LinkedIn wingman</p>
+      </div>
       
-      {/* Dashboard Header */}
-      <div className="bg-card border-b border-border pt-16">
-        <div className="container mx-auto px-4 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-                <p className="text-muted-foreground">Welcome back, {user.name}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Bell className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Settings className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <User className="w-4 h-4 mr-2" />
-                {user.plan} Plan
-              </Button>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Stats Cards */}
+        <div className="bg-white rounded-lg border border-border p-6">
+          <div className="text-2xl font-bold text-foreground">156</div>
+          <div className="text-muted-foreground">Total Leads</div>
+          <div className="text-sm text-primary font-medium">+12% from last month</div>
+        </div>
+        
+        <div className="bg-white rounded-lg border border-border p-6">
+          <div className="text-2xl font-bold text-foreground">89</div>
+          <div className="text-muted-foreground">Hot Prospects</div>
+          <div className="text-sm text-primary font-medium">+5% from last month</div>
+        </div>
+        
+        <div className="bg-white rounded-lg border border-border p-6">
+          <div className="text-2xl font-bold text-foreground">456</div>
+          <div className="text-muted-foreground">Messages Sent</div>
+          <div className="text-sm text-primary font-medium">+8% from last month</div>
+        </div>
+        
+        <div className="bg-white rounded-lg border border-border p-6">
+          <div className="text-2xl font-bold text-foreground">23%</div>
+          <div className="text-muted-foreground">Response Rate</div>
+          <div className="text-sm text-primary font-medium">+2% from last month</div>
         </div>
       </div>
+    </div>
+  );
+};
 
-      {/* Dashboard Content */}
-      <div className="container mx-auto px-4 lg:px-8 py-8">
-        <div className="space-y-8">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[
-              { label: 'Total Leads', value: '1,234', change: '+12%' },
-              { label: 'Hot Prospects', value: '89', change: '+5%' },
-              { label: 'Email Sent', value: '456', change: '+8%' },
-              { label: 'Response Rate', value: '23%', change: '+2%' }
-            ].map((stat, index) => (
-              <div key={index} className="bg-card rounded-lg p-6 shadow-card hover-lift">
-                <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-                <div className="text-muted-foreground">{stat.label}</div>
-                <div className="text-sm text-primary font-medium">{stat.change}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Main Dashboard */}
-          <DashboardPreview />
-        </div>
+// Content Engine Component
+const ContentEngine = () => {
+  return (
+    <div className="container mx-auto px-6 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground">Content Engine</h1>
+        <p className="text-muted-foreground">AI-powered content generation and automation</p>
+      </div>
+      
+      <div className="bg-white rounded-lg border border-border p-6">
+        <p className="text-muted-foreground">Content Engine features coming soon...</p>
       </div>
     </div>
   );
