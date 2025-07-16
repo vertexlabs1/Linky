@@ -27,10 +27,10 @@ const Navigation = () => {
     };
   }, []);
 
-  // Much slower fade for mobile - responsive to scroll speed
-  const fadeStart = 50; // Start fading earlier
-  const fadeDistance = isMobile ? 600 : 200; // Much longer fade distance on mobile
-  const mascotOpacity = Math.min(1, Math.max(0, (scrollY - fadeStart) / fadeDistance));
+  // Much more gradual fade - logo should remain faintly visible
+  const fadeStart = 100; // Start fading later
+  const fadeDistance = isMobile ? 1200 : 800; // Much longer fade distance
+  const mascotOpacity = Math.max(0.1, Math.min(1, 1 - (scrollY - fadeStart) / fadeDistance)); // Never goes below 0.1 opacity
 
   return (
     <>
