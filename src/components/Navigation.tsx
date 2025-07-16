@@ -9,15 +9,23 @@ const Navigation = () => {
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
 
   useEffect(() => {
+    let ticking = false;
+    
     const handleScroll = () => {
-      setScrollY(window.scrollY);
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setScrollY(window.scrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', checkMobile);
     checkMobile(); // Check on initial load
 

@@ -10,9 +10,17 @@ const HeroSection = () => {
   useEffect(() => {
     setMounted(true);
     
+    let ticking = false;
+    
     // Simple scroll handler for fade effect only
     const handleScroll = () => {
-      setScrollY(window.scrollY);
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setScrollY(window.scrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
     const checkMobile = () => {

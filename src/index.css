@@ -251,7 +251,7 @@ All colors MUST be HSL.
 
 @media (max-width: 767px) {
   .transition-smooth {
-    transition: all 2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   }
 }
 
