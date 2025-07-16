@@ -4,6 +4,7 @@ import { Sparkles, TrendingUp, Users, Zap, Play } from 'lucide-react';
 const HeroSection = () => {
   const [scrollY, setScrollY] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   useEffect(() => {
@@ -14,15 +15,28 @@ const HeroSection = () => {
       setScrollY(window.scrollY);
     };
 
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', checkMobile);
+    checkMobile(); // Check on initial load
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', checkMobile);
     };
   }, []);
 
-  // Simple fade calculation only - no complex transforms
-  const heroMascotOpacity = Math.max(0, 1 - (scrollY / 200));
+  // Much more gradual fade for hero mascot - responsive to scroll speed
+  const fadeStart = 100; // Start fading later
+  const fadeDistance = isMobile ? 1200 : 800; // Much longer fade distance
+  const heroMascotOpacity = Math.max(0.1, Math.min(1, 1 - (scrollY - fadeStart) / fadeDistance)); // Never goes below 0.1 opacity
+  
+  // Debug logging
+  console.log('Hero Scroll Y:', scrollY, 'Mobile:', isMobile, 'Hero Opacity:', heroMascotOpacity, 'Fade Distance:', fadeDistance);
+
   const isScrolled = scrollY > 100;
 
   return (
