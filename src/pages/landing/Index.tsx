@@ -1,4 +1,4 @@
-import LandingPage from '@/components/LandingPage';
+import LandingPage from '@/components/landing/LandingPage';
 
 const Index = () => {
   return <LandingPage />;

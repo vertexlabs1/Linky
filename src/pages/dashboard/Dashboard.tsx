@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
-import DashboardLayout from '@/components/DashboardLayout';
-import LeadsPage from '@/components/LeadsPage';
-import TargetsPage from '@/components/TargetsPage';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import LeadsPage from '@/components/dashboard/LeadsPage';
+import TargetsPage from '@/components/dashboard/TargetsPage';
 
 const Dashboard = () => {
   return (
