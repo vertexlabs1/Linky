@@ -96,6 +96,7 @@ const DetailedActivityBoard: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
 
 
   const getTrendIcon = (trend: number) => {
@@ -350,7 +351,7 @@ const DetailedActivityBoard: React.FC = () => {
                     <div key={post.id} className="border rounded-lg p-4">
                       <p className="text-sm mb-3">{post.content}</p>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{post.timestamp.toLocaleDateString()}</span>
+                        <span>{new Date(post.timestamp).toLocaleDateString()}</span>
                         <div className="flex items-center space-x-4">
                           <span>❤️ {post.engagement.likes}</span>
                           <span>💬 {post.engagement.comments}</span>
@@ -384,7 +385,7 @@ const DetailedActivityBoard: React.FC = () => {
                         <div className="text-xs text-muted-foreground">{view.viewer.title} at {view.viewer.company}</div>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {view.timestamp.toLocaleTimeString()}
+                        {new Date(view.timestamp).toLocaleTimeString()}
                       </div>
                     </div>
                   ))}

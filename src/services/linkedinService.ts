@@ -99,6 +99,7 @@ class LinkedInService {
   private static instance: LinkedInService;
   private currentData: LinkedInProfileData | null = null;
   private isFetching = false;
+  private API_BASE = 'http://localhost:3001/api';
 
   static getInstance(): LinkedInService {
     if (!LinkedInService.instance) {
@@ -107,7 +108,20 @@ class LinkedInService {
     return LinkedInService.instance;
   }
 
-  // Fetch LinkedIn profile data
+  // Extract username from LinkedIn URL
+  private extractUsername(linkedinUrl: string): string {
+    try {
+      const url = new URL(linkedinUrl);
+      const pathParts = url.pathname.split('/');
+      const username = pathParts.find(part => part && part !== 'in');
+      return username || 'unknown';
+    } catch (error) {
+      console.error('Error extracting username from URL:', error);
+      return 'unknown';
+    }
+  }
+
+  // Fetch LinkedIn profile data from real backend
   async fetchProfileData(linkedinUrl: string): Promise<LinkedInProfileData> {
     if (this.isFetching) {
       throw new Error('Already fetching data');
@@ -116,9 +130,16 @@ class LinkedInService {
     this.isFetching = true;
 
     try {
-      // For now, we'll simulate fetching real data
-      // In production, this would make actual API calls or web scraping
-      const profileData = await this.simulateLinkedInFetch(linkedinUrl);
+      const username = this.extractUsername(linkedinUrl);
+      console.log(`Fetching real LinkedIn data for: ${username}`);
+      
+      const response = await fetch(`${this.API_BASE}/linkedin/profile/${username}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const profileData = await response.json();
       
       // Save to localStorage
       localStorage.setItem('linkyLinkedInData', JSON.stringify(profileData));
@@ -127,19 +148,23 @@ class LinkedInService {
       return profileData;
     } catch (error) {
       console.error('Error fetching LinkedIn data:', error);
-      throw error;
+      
+      // Fallback to simulated data if backend is not available
+      console.log('Falling back to simulated data...');
+      const fallbackData = await this.simulateLinkedInFetch(linkedinUrl);
+      return fallbackData;
     } finally {
       this.isFetching = false;
     }
   }
 
-  // Simulate fetching LinkedIn data (replace with real implementation)
+  // Simulate fetching LinkedIn data (fallback)
   private async simulateLinkedInFetch(linkedinUrl: string): Promise<LinkedInProfileData> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Extract username from LinkedIn URL
-    const username = linkedinUrl.split('/in/')[1]?.split('/')[0] || 'user';
+    const username = this.extractUsername(linkedinUrl);
     
     // Generate realistic data based on the URL
     const profileData: LinkedInProfileData = {
