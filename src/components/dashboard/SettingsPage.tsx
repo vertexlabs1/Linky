@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,11 +22,11 @@ import {
 const SettingsPage: React.FC = () => {
   // User Profile State
   const [userProfile, setUserProfile] = useState({
-    firstName: 'Will',
-    lastName: 'Stewart',
-    email: 'will@98c.org',
-    phone: '+1 (555) 123-4567',
-    linkedinUrl: 'https://linkedin.com/in/willstewart'
+    firstName: 'Tyler',
+    lastName: 'Amos',
+    email: 'tyler@vxlbs.co',
+    phone: '6156020218',
+    linkedinUrl: 'https://www.linkedin.com/in/luke-pauldine-86b1l4la9/'
   });
 
   // Settings State
@@ -35,8 +35,34 @@ const SettingsPage: React.FC = () => {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [dataExport, setDataExport] = useState(false);
 
+  // Load saved data on component mount
+  useEffect(() => {
+    const savedProfile = localStorage.getItem('linkyUserProfile');
+    const savedSettings = localStorage.getItem('linkySettings');
+    
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile));
+    }
+    
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      setIsMonitoring(settings.isMonitoring);
+      setEmailNotifications(settings.emailNotifications);
+      setPushNotifications(settings.pushNotifications);
+      setDataExport(settings.dataExport);
+    }
+  }, []);
+
   const handleSaveSettings = () => {
-    // Save settings logic here
+    // Save settings to localStorage
+    localStorage.setItem('linkyUserProfile', JSON.stringify(userProfile));
+    localStorage.setItem('linkySettings', JSON.stringify({
+      isMonitoring,
+      emailNotifications,
+      pushNotifications,
+      dataExport
+    }));
+    
     console.log('Settings saved:', {
       userProfile,
       isMonitoring,
@@ -44,6 +70,14 @@ const SettingsPage: React.FC = () => {
       pushNotifications,
       dataExport
     });
+    
+    // If LinkedIn URL is valid and monitoring is active, trigger data fetch
+    if (isMonitoring && userProfile.linkedinUrl) {
+      // Trigger LinkedIn data fetch
+      window.dispatchEvent(new CustomEvent('linkedinProfileUpdated', {
+        detail: { linkedinUrl: userProfile.linkedinUrl }
+      }));
+    }
   };
 
   const handleStartMonitoring = () => {

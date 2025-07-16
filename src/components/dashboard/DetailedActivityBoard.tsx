@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import LinkedInService, { LinkedInProfileData } from '@/services/linkedinService';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -29,262 +31,72 @@ import {
   Minus
 } from 'lucide-react';
 
-interface LinkedInProfileData {
-  profile: {
-    name: string;
-    title: string;
-    company: string;
-    location: string;
-    profilePicture: string;
-    linkedinUrl: string;
-    industry: string;
-    summary: string;
-    experience: Array<{
-      title: string;
-      company: string;
-      duration: string;
-      description: string;
-    }>;
-    education: Array<{
-      school: string;
-      degree: string;
-      year: string;
-    }>;
-    skills: Array<{
-      name: string;
-      endorsements: number;
-    }>;
-  };
-  stats: {
-    profileViews: {
-      total: number;
-      thisWeek: number;
-      thisMonth: number;
-      trend: number;
-    };
-    connections: {
-      total: number;
-      newThisWeek: number;
-      trend: number;
-    };
-    endorsements: {
-      total: number;
-      newThisWeek: number;
-      trend: number;
-    };
-    posts: {
-      total: number;
-      thisWeek: number;
-      engagement: number;
-    };
-    engagement: {
-      rate: number;
-      likes: number;
-      comments: number;
-      shares: number;
-    };
-  };
-  activity: {
-    recentPosts: Array<{
-      id: string;
-      content: string;
-      timestamp: Date;
-      engagement: {
-        likes: number;
-        comments: number;
-        shares: number;
-      };
-      reach: number;
-    }>;
-    recentViews: Array<{
-      id: string;
-      viewer: {
-        name: string;
-        title: string;
-        company: string;
-        avatar: string;
-      };
-      timestamp: Date;
-    }>;
-    recentConnections: Array<{
-      id: string;
-      name: string;
-      title: string;
-      company: string;
-      avatar: string;
-      timestamp: Date;
-    }>;
-  };
-  analytics: {
-    weeklyViews: Array<{ date: string; views: number }>;
-    monthlyGrowth: Array<{ month: string; growth: number }>;
-    topIndustries: Array<{ industry: string; percentage: number }>;
-    engagementTrends: Array<{ date: string; engagement: number }>;
-  };
-}
+
 
 const DetailedActivityBoard: React.FC = () => {
   const [profileData, setProfileData] = useState<LinkedInProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const linkedinService = LinkedInService.getInstance();
 
-  // Mock data for demonstration
-  const mockProfileData: LinkedInProfileData = {
-    profile: {
-      name: 'Will Stewart',
-      title: 'Senior Software Engineer',
-      company: 'TechCorp Inc.',
-      location: 'San Francisco, CA',
-      profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      linkedinUrl: 'https://linkedin.com/in/willstewart',
-      industry: 'Technology',
-      summary: 'Passionate software engineer with 8+ years of experience building scalable web applications and leading development teams.',
-      experience: [
-        {
-          title: 'Senior Software Engineer',
-          company: 'TechCorp Inc.',
-          duration: '2021 - Present',
-          description: 'Leading development of cloud-native applications using React, Node.js, and AWS.'
-        },
-        {
-          title: 'Software Engineer',
-          company: 'StartupXYZ',
-          duration: '2019 - 2021',
-          description: 'Built and maintained multiple web applications using modern JavaScript frameworks.'
-        }
-      ],
-      education: [
-        {
-          school: 'Stanford University',
-          degree: 'Bachelor of Science in Computer Science',
-          year: '2019'
-        }
-      ],
-      skills: [
-        { name: 'React.js', endorsements: 45 },
-        { name: 'Node.js', endorsements: 38 },
-        { name: 'TypeScript', endorsements: 32 },
-        { name: 'AWS', endorsements: 28 },
-        { name: 'Python', endorsements: 25 }
-      ]
-    },
-    stats: {
-      profileViews: {
-        total: 1247,
-        thisWeek: 89,
-        thisMonth: 342,
-        trend: 13.4
-      },
-      connections: {
-        total: 567,
-        newThisWeek: 12,
-        trend: 3.1
-      },
-      endorsements: {
-        total: 89,
-        newThisWeek: 3,
-        trend: 5.2
-      },
-      posts: {
-        total: 23,
-        thisWeek: 2,
-        engagement: 156
-      },
-      engagement: {
-        rate: 23.4,
-        likes: 89,
-        comments: 34,
-        shares: 12
-      }
-    },
-    activity: {
-      recentPosts: [
-        {
-          id: '1',
-          content: 'Excited to share that I\'ve joined TechCorp as Senior Software Engineer! Looking forward to building amazing products with this incredible team.',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          engagement: { likes: 45, comments: 12, shares: 3 },
-          reach: 1200
-        },
-        {
-          id: '2',
-          content: 'Just published a new article on React performance optimization techniques. Check it out!',
-          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-          engagement: { likes: 23, comments: 8, shares: 5 },
-          reach: 800
-        }
-      ],
-      recentViews: [
-        {
-          id: '1',
-          viewer: {
-            name: 'Sarah Johnson',
-            title: 'Engineering Manager',
-            company: 'Google',
-            avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face'
-          },
-          timestamp: new Date(Date.now() - 30 * 60 * 1000)
-        },
-        {
-          id: '2',
-          viewer: {
-            name: 'Mike Chen',
-            title: 'Senior Developer',
-            company: 'Microsoft',
-            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face'
-          },
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000)
-        }
-      ],
-      recentConnections: [
-        {
-          id: '1',
-          name: 'Alex Rodriguez',
-          title: 'Product Manager',
-          company: 'Netflix',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face',
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000)
-        }
-      ]
-    },
-    analytics: {
-      weeklyViews: [
-        { date: 'Mon', views: 12 },
-        { date: 'Tue', views: 18 },
-        { date: 'Wed', views: 15 },
-        { date: 'Thu', views: 22 },
-        { date: 'Fri', views: 19 },
-        { date: 'Sat', views: 8 },
-        { date: 'Sun', views: 5 }
-      ],
-      monthlyGrowth: [
-        { month: 'Jan', growth: 5.2 },
-        { month: 'Feb', growth: 8.1 },
-        { month: 'Mar', growth: 12.3 },
-        { month: 'Apr', growth: 15.7 }
-      ],
-      topIndustries: [
-        { industry: 'Technology', percentage: 45 },
-        { industry: 'Finance', percentage: 20 },
-        { industry: 'Healthcare', percentage: 15 },
-        { industry: 'Education', percentage: 10 },
-        { industry: 'Other', percentage: 10 }
-      ],
-      engagementTrends: [
-        { date: 'Week 1', engagement: 18 },
-        { date: 'Week 2', engagement: 22 },
-        { date: 'Week 3', engagement: 25 },
-        { date: 'Week 4', engagement: 23 }
-      ]
-    }
-  };
-
+  // Load data on component mount
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      setProfileData(mockProfileData);
-      setIsLoading(false);
-    }, 1000);
+    loadProfileData();
+    
+    // Listen for profile updates from settings
+    const handleProfileUpdate = (event: CustomEvent) => {
+      if (event.detail?.linkedinUrl) {
+        loadProfileData(event.detail.linkedinUrl);
+      }
+    };
+    
+    window.addEventListener('linkedinProfileUpdated', handleProfileUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('linkedinProfileUpdated', handleProfileUpdate as EventListener);
+    };
   }, []);
+
+  const loadProfileData = async (linkedinUrl?: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      let data: LinkedInProfileData;
+      
+      if (linkedinUrl) {
+        // Fetch fresh data for the new URL
+        data = await linkedinService.fetchProfileData(linkedinUrl);
+        linkedinService.updateTimestamp();
+      } else {
+        // Try to get cached data first
+        data = linkedinService.getCachedData();
+        
+        if (!data) {
+          // No cached data, check if we have a LinkedIn URL in settings
+          const savedProfile = localStorage.getItem('linkyUserProfile');
+          if (savedProfile) {
+            const profile = JSON.parse(savedProfile);
+            if (profile.linkedinUrl) {
+              data = await linkedinService.fetchProfileData(profile.linkedinUrl);
+              linkedinService.updateTimestamp();
+            }
+          }
+        }
+      }
+      
+      if (data) {
+        setProfileData(data);
+      } else {
+        setError('No LinkedIn profile data available. Please configure your profile in Settings.');
+      }
+    } catch (err) {
+      console.error('Error loading profile data:', err);
+      setError('Failed to load LinkedIn profile data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+
 
   const getTrendIcon = (trend: number) => {
     if (trend > 0) return <ArrowUpRight className="w-4 h-4 text-green-600" />;
@@ -313,11 +125,41 @@ const DetailedActivityBoard: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="container mx-auto px-6 py-8">
+        <div className="text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <p className="text-red-600 font-medium">Error Loading Data</p>
+            <p className="text-red-500 text-sm mt-2">{error}</p>
+            <Button 
+              onClick={() => loadProfileData()} 
+              className="mt-4"
+              variant="outline"
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!profileData) {
     return (
       <div className="container mx-auto px-6 py-8">
         <div className="text-center">
-          <p className="text-muted-foreground">No profile data available</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <p className="text-blue-600 font-medium">No Profile Data</p>
+            <p className="text-blue-500 text-sm mt-2">
+              Please configure your LinkedIn profile in Settings to view your activity data.
+            </p>
+            <Link to="/dashboard/settings">
+              <Button className="mt-4" variant="outline">
+                Go to Settings
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
