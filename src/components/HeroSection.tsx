@@ -51,10 +51,10 @@ const HeroSection = () => {
         <div 
           className={`grid items-center max-w-7xl mx-auto transition-all duration-500 ${
             isScrolled 
-              ? 'lg:grid-cols-1 gap-6 min-h-[60vh]' 
+              ? 'grid-cols-1 gap-6 min-h-[60vh] lg:grid-cols-2 lg:gap-12 lg:min-h-[80vh]' 
               : 'lg:grid-cols-2 gap-12 min-h-[80vh]'
           }`}
-          style={{ minHeight: `${heroHeight}vh` }}
+          style={{ minHeight: window.innerWidth < 1024 ? `${heroHeight}vh` : '80vh' }}
         >
           
           {/* Content - Left Side */}
@@ -115,21 +115,23 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* Hero Mascot - Right Side - Absolute positioning to prevent layout shift */}
+          {/* Hero Mascot - Right Side - Responsive positioning */}
           <div 
             className={`${
-              isScrolled 
-                ? 'absolute top-4 right-4 lg:top-8 lg:right-8 z-0' 
+              isScrolled && window.innerWidth < 1024
+                ? 'absolute top-4 right-4 z-0' 
                 : 'flex justify-center lg:justify-end relative'
             } ${mounted ? 'slide-in-right' : 'opacity-0'} transition-all duration-500`}
             style={{
               opacity: heroMascotOpacity,
-              transform: `scale(${isScrolled ? 0.3 : heroMascotScale}) translateY(${scrollY * 0.05}px)`,
-              pointerEvents: isScrolled ? 'none' : 'auto'
+              transform: `scale(${
+                isScrolled && window.innerWidth < 1024 ? 0.3 : heroMascotScale
+              }) translateY(${scrollY * 0.05}px)`,
+              pointerEvents: (isScrolled && window.innerWidth < 1024) ? 'none' : 'auto'
             }}
           >
             <div className="relative">
-              {/* Glow effect behind mascot - reduced on mobile */}
+              {/* Glow effect behind mascot */}
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 pulse-glow" />
               
               <img 
@@ -137,13 +139,13 @@ const HeroSection = () => {
                 alt="Linky Robot" 
                 className="relative object-contain float-animation"
                 style={{
-                  width: isScrolled ? '120px' : '300px',
-                  height: isScrolled ? '120px' : '300px',
+                  width: (isScrolled && window.innerWidth < 1024) ? '120px' : '500px',
+                  height: (isScrolled && window.innerWidth < 1024) ? '120px' : '500px',
                 }}
               />
               
-              {/* Floating UI elements around mascot - hide when scrolled */}
-              {!isScrolled && (
+              {/* Floating UI elements around mascot - hide on mobile when scrolled */}
+              {!(isScrolled && window.innerWidth < 1024) && (
                 <>
                   <div className="absolute top-10 -left-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-primary/20 hidden lg:block" style={{ animationDelay: '1s' }}>
                     <div className="flex items-center gap-2">
