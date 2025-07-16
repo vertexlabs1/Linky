@@ -27,10 +27,10 @@ const Navigation = () => {
     };
   }, []);
 
-  // Much more gradual fade - logo should remain faintly visible
+  // Navigation mascot appears as hero mascot fades (starts invisible)
   const fadeStart = 100; // Start fading later
   const fadeDistance = isMobile ? 1200 : 800; // Much longer fade distance
-  const mascotOpacity = Math.max(0.1, Math.min(1, 1 - (scrollY - fadeStart) / fadeDistance)); // Never goes below 0.1 opacity
+  const mascotOpacity = Math.max(0, Math.min(1, (scrollY - fadeStart) / fadeDistance)); // Fades IN as hero fades OUT
 
   return (
     <>
