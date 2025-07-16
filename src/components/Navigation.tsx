@@ -12,6 +12,7 @@ const Navigation = () => {
     let ticking = false;
     
     const handleScroll = () => {
+      // More responsive on mobile - less throttling
       if (!ticking) {
         requestAnimationFrame(() => {
           setScrollY(window.scrollY);
@@ -35,10 +36,10 @@ const Navigation = () => {
     };
   }, []);
 
-  // Navigation mascot appears as hero mascot fades (starts invisible)
-  const fadeStart = 100; // Start fading later
-  const fadeDistance = isMobile ? 1200 : 800; // Much longer fade distance
-  const mascotOpacity = Math.max(0, Math.min(1, (scrollY - fadeStart) / fadeDistance)); // Fades IN as hero fades OUT
+  // Snappier fade calculation for mobile
+  const fadeStart = 100;
+  const fadeDistance = isMobile ? 800 : 600; // Shorter distance for snappier response
+  const mascotOpacity = Math.max(0, Math.min(1, (scrollY - fadeStart) / fadeDistance));
 
   return (
     <>
@@ -48,7 +49,7 @@ const Navigation = () => {
             {/* Logo */}
             <div className="flex items-center p-2">
               <div 
-                className="transition-smooth"
+                className="transition-smooth nav-logo"
                 style={{ opacity: mascotOpacity }}
               >
                 <img 
