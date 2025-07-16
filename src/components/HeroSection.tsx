@@ -5,28 +5,37 @@ const HeroSection = () => {
   const [scrollY, setScrollY] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [ticking, setTicking] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     
-    // Throttled scroll handler using requestAnimationFrame
+    // More aggressive throttling with debounce for smoother scroll
+    let ticking = false;
+    let lastScrollY = 0;
+    
     const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Only update if scroll position changed significantly (reduces micro-jitters)
+      if (Math.abs(currentScrollY - lastScrollY) < 2) return;
+      
       if (!ticking) {
         requestAnimationFrame(() => {
-          setScrollY(window.scrollY);
-          setTicking(false);
+          setScrollY(currentScrollY);
+          lastScrollY = currentScrollY;
+          ticking = false;
         });
-        setTicking(true);
+        ticking = true;
       }
     };
 
+    // Use passive listener for better performance
     window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [ticking]);
+  }, []);
 
   // Calculate parallax effects with smoother transitions - using rounded values to prevent micro-movements
   const heroMascotOpacity = Math.max(0, Math.round((1 - (scrollY / 150)) * 100) / 100);

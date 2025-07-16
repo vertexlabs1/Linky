@@ -10,7 +10,7 @@ const PricingSection = () => {
 
   const plans = [
     {
-      name: "Analyst",
+      name: "Prospector",
       price: isAnnual ? 100 : 125,
       description: "Perfect for individual professionals",
       popular: false,
@@ -28,7 +28,7 @@ const PricingSection = () => {
       }
     },
     {
-      name: "Builder", 
+      name: "Networker", 
       price: isAnnual ? 240 : 300,
       description: "Ideal for growing teams",
       popular: true,
@@ -46,7 +46,7 @@ const PricingSection = () => {
       }
     },
     {
-      name: "Closer",
+      name: "Rainmaker",
       price: isAnnual ? 360 : 450,
       description: "For sales teams and agencies",
       popular: false,
@@ -161,7 +161,7 @@ const PricingSection = () => {
                   </div>
                   {isAnnual && (
                     <div className="text-sm text-muted-foreground line-through">
-                      ${plan.name === 'Analyst' ? 125 : plan.name === 'Builder' ? 300 : 450}/month
+                      ${plan.name === 'Prospector' ? 125 : plan.name === 'Networker' ? 300 : 450}/month
                     </div>
                   )}
                 </div>
