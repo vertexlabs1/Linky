@@ -8,9 +8,21 @@ const HeroSection = () => {
 
   useEffect(() => {
     setMounted(true);
+    
+    // Simple scroll handler for fade effect only
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
-  // Simplified scroll detection - just check if scrolled, no complex calculations
+  // Simple fade calculation only - no complex transforms
+  const heroMascotOpacity = Math.max(0, 1 - (scrollY / 200));
   const isScrolled = scrollY > 100;
 
   return (
@@ -90,8 +102,11 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* Hero Mascot - Right Side - Static positioning to prevent jitter */}
-          <div className={`flex justify-center lg:justify-end ${mounted ? 'slide-in-right' : 'opacity-0'}`}>
+          {/* Hero Mascot - Right Side - Simple fade only */}
+          <div 
+            className={`flex justify-center lg:justify-end ${mounted ? 'slide-in-right' : 'opacity-0'}`}
+            style={{ opacity: heroMascotOpacity }}
+          >
             <div className="relative" style={{ transform: 'translateZ(0)' }}>
               {/* Glow effect behind mascot */}
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 pulse-glow" />
