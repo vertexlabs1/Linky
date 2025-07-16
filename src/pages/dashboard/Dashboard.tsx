@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import LeadsPage from '@/components/dashboard/LeadsPage';
 import TargetsPage from '@/components/dashboard/TargetsPage';
 import LinkedInActivityDashboard from '@/components/dashboard/LinkedInActivityDashboard';
+import SettingsPage from '@/components/dashboard/SettingsPage';
 
 const Dashboard = () => {
   return (
@@ -14,6 +15,7 @@ const Dashboard = () => {
         <Route path="/leads" element={<LeadsPage />} />
         <Route path="/targets" element={<TargetsPage />} />
         <Route path="/content" element={<ContentEngine />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </DashboardLayout>
   );

@@ -12,7 +12,11 @@ import {
   Menu,
   Bell,
   Settings,
-  LogOut
+  LogOut,
+  ChevronDown,
+  ExternalLink,
+  Copy,
+  Gift
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,11 +41,17 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   });
 
   const navigation = [
-    { name: 'HOME', href: '/dashboard', icon: Home },
-    { name: 'ACTIVITY', href: '/dashboard/activity', icon: Activity },
-    { name: 'LEADS', href: '/dashboard/leads', icon: Users },
-    { name: 'TARGETS', href: '/dashboard/targets', icon: Target },
-    { name: 'CONTENT ENGINE', href: '/dashboard/content', icon: MessageSquare },
+    { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Activity', href: '/dashboard/activity', icon: Activity },
+    { name: 'Leads', href: '/dashboard/leads', icon: Users },
+    { name: 'Targets', href: '/dashboard/targets', icon: Target },
+    { name: 'Content Engine', href: '/dashboard/content', icon: MessageSquare },
+  ];
+
+  const insightsNavigation = [
+    { name: 'Bookings', href: '/dashboard/insights/bookings', icon: Activity },
+    { name: 'Routing', href: '/dashboard/insights/routing', icon: Activity },
+    { name: 'Router Position', href: '/dashboard/insights/router-position', icon: Activity },
   ];
 
   const isActive = (href: string) => {
@@ -52,105 +62,147 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top Navigation Bar */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-border">
-        <div className="flex items-center justify-between px-6 py-3">
-          {/* Left Side - Logo and Navigation */}
-          <div className="flex items-center space-x-8">
-            {/* Logo */}
-            <Link to="/" className="flex items-center space-x-2">
-              <img 
-                src="/lovable-uploads/04fea3ee-d055-40e5-9dae-0428d4e3487b.png" 
-                alt="Linky" 
-                className="w-8 h-8"
-              />
-              <span className="text-xl font-bold text-foreground">Linky</span>
-            </Link>
-
-            {/* Navigation Links */}
-            <nav className="flex items-center space-x-6">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive(item.href)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Right Side - User Profile and Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Search..."
-                className="pl-10 w-64"
-              />
-            </div>
-
-            {/* Action Icons */}
-            <Button variant="ghost" size="sm">
-              <Download className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Maximize2 className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Menu className="w-4 h-4" />
-            </Button>
-
-            {/* User Profile */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2">
+    <div className="flex h-screen bg-background">
+      {/* Sidebar */}
+      <div className="w-64 bg-white border-r border-border flex flex-col">
+        {/* User Profile Section */}
+        <div className="p-4 border-b border-border">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="w-full justify-start p-3 h-auto">
+                <div className="flex items-center space-x-3 w-full">
                   <Avatar className="w-8 h-8">
                     <AvatarImage src="" />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
+                    <AvatarFallback className="bg-green-500 text-white text-sm font-medium">
                       {user.avatar}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="text-left">
+                  <div className="flex-1 text-left">
                     <div className="text-sm font-medium text-foreground">{user.name}</div>
                     <div className="text-xs text-muted-foreground">{user.email}</div>
                   </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem>
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Bell className="w-4 h-4 mr-2" />
-                  Notifications
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuItem>
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Bell className="w-4 h-4 mr-2" />
+                Notifications
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Search */}
+        <div className="p-4 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search..."
+              className="pl-10"
+            />
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="pt-20">
-        {children}
-      </main>
+        {/* Main Navigation */}
+        <nav className="flex-1 p-4 space-y-2">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(item.href)
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Utility Links */}
+        <div className="p-4 border-t border-border space-y-2">
+          <Button variant="ghost" size="sm" className="w-full justify-start">
+            <ExternalLink className="w-4 h-4 mr-2" />
+            View public page
+          </Button>
+          <Button variant="ghost" size="sm" className="w-full justify-start">
+            <Copy className="w-4 h-4 mr-2" />
+            Copy public page link
+          </Button>
+          <Button variant="ghost" size="sm" className="w-full justify-start">
+            <Gift className="w-4 h-4 mr-2" />
+            Earn 20% referral
+          </Button>
+          <Link to="/dashboard/settings">
+            <Button variant="ghost" size="sm" className="w-full justify-start">
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+          </Link>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-border text-xs text-muted-foreground">
+          © 2025 Linky, Inc. v.1.0.0
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Header */}
+        <header className="bg-white border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                {location.pathname === '/dashboard' && 'Dashboard'}
+                {location.pathname === '/dashboard/activity' && 'LinkedIn Activity'}
+                {location.pathname === '/dashboard/leads' && 'Leads'}
+                {location.pathname === '/dashboard/targets' && 'Targets'}
+                {location.pathname === '/dashboard/content' && 'Content Engine'}
+                {location.pathname === '/dashboard/settings' && 'Settings'}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {location.pathname === '/dashboard' && 'Manage your LinkedIn activity and leads'}
+                {location.pathname === '/dashboard/activity' && 'Monitor your LinkedIn profile activity'}
+                {location.pathname === '/dashboard/leads' && 'Manage your prospects and connections'}
+                {location.pathname === '/dashboard/targets' && 'Track your target companies and contacts'}
+                {location.pathname === '/dashboard/content' && 'AI-powered content generation and automation'}
+                {location.pathname === '/dashboard/settings' && 'Configure your account and preferences'}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+              <Button size="sm">
+                <Maximize2 className="w-4 h-4 mr-2" />
+                +
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -189,30 +190,25 @@ const LinkedInActivityDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* LinkedIn URL Input */}
+      {/* Setup Reminder */}
       {!isMonitoring && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Target className="w-5 h-5" />
-              <span>Add LinkedIn Profile</span>
+              <span>Setup Required</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="linkedin-url">LinkedIn Profile URL</Label>
-                <Input
-                  id="linkedin-url"
-                  placeholder="https://linkedin.com/in/yourprofile"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
               <p className="text-sm text-muted-foreground">
-                Enter your public LinkedIn profile URL to start monitoring your activity
+                To start monitoring your LinkedIn activity, please configure your profile in Settings.
               </p>
+              <Link to="/dashboard/settings">
+                <Button>
+                  Go to Settings
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
