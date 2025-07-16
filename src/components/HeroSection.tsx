@@ -21,10 +21,15 @@ const HeroSection = () => {
     };
   }, []);
 
-  // Calculate parallax effects
-  const heroMascotOpacity = Math.max(0, 1 - (scrollY / 200));
-  const heroMascotScale = Math.max(0.3, 1 - (scrollY / 400));
+  // Calculate parallax effects - faster fade for mobile
+  const heroMascotOpacity = Math.max(0, 1 - (scrollY / 150));
+  const heroMascotScale = Math.max(0.3, 1 - (scrollY / 300));
   const textParallax = scrollY * 0.1;
+  
+  // Calculate dynamic height reduction to eliminate blank space
+  const heroHeight = Math.max(60, 80 - (scrollY / 10));
+  const gridCollapseProgress = Math.min(1, scrollY / 200);
+  const isScrolled = scrollY > 50;
 
   return (
     <section id="home" className="relative min-h-screen flex items-center overflow-hidden pt-20 hero-bg-pattern">
@@ -43,7 +48,14 @@ const HeroSection = () => {
       </div>
       
       <div className="container mx-auto px-6 lg:px-8 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center max-w-7xl mx-auto min-h-[80vh]">
+        <div 
+          className={`grid items-center max-w-7xl mx-auto transition-all duration-500 ${
+            isScrolled 
+              ? 'lg:grid-cols-1 gap-6 min-h-[60vh]' 
+              : 'lg:grid-cols-2 gap-12 min-h-[80vh]'
+          }`}
+          style={{ minHeight: `${heroHeight}vh` }}
+        >
           
           {/* Content - Left Side */}
           <div className={`space-y-8 ${mounted ? 'slide-in-left' : 'opacity-0'}`} style={{ transform: `translateY(${textParallax}px)` }}>
@@ -103,10 +115,21 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* Hero Mascot - Right Side */}
-          <div className={`flex justify-center lg:justify-end ${mounted ? 'slide-in-right' : 'opacity-0'}`}>
+          {/* Hero Mascot - Right Side - Absolute positioning to prevent layout shift */}
+          <div 
+            className={`${
+              isScrolled 
+                ? 'absolute top-4 right-4 lg:top-8 lg:right-8 z-0' 
+                : 'flex justify-center lg:justify-end relative'
+            } ${mounted ? 'slide-in-right' : 'opacity-0'} transition-all duration-500`}
+            style={{
+              opacity: heroMascotOpacity,
+              transform: `scale(${isScrolled ? 0.3 : heroMascotScale}) translateY(${scrollY * 0.05}px)`,
+              pointerEvents: isScrolled ? 'none' : 'auto'
+            }}
+          >
             <div className="relative">
-              {/* Glow effect behind mascot */}
+              {/* Glow effect behind mascot - reduced on mobile */}
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 pulse-glow" />
               
               <img 
@@ -114,27 +137,29 @@ const HeroSection = () => {
                 alt="Linky Robot" 
                 className="relative object-contain float-animation"
                 style={{
-                  width: '500px',
-                  height: '500px',
-                  opacity: heroMascotOpacity,
-                  transform: `scale(${heroMascotScale}) translateY(${scrollY * 0.05}px)`
+                  width: isScrolled ? '120px' : '300px',
+                  height: isScrolled ? '120px' : '300px',
                 }}
               />
               
-              {/* Floating UI elements around mascot */}
-              <div className="absolute top-10 -left-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-primary/20" style={{ animationDelay: '1s' }}>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-primary rounded-full"></div>
-                  <span className="text-sm font-medium">New Lead!</span>
-                </div>
-              </div>
-              
-              <div className="absolute bottom-20 -right-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-accent/20" style={{ animationDelay: '3s' }}>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-accent" />
-                  <span className="text-sm font-medium">+247% ROI</span>
-                </div>
-              </div>
+              {/* Floating UI elements around mascot - hide when scrolled */}
+              {!isScrolled && (
+                <>
+                  <div className="absolute top-10 -left-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-primary/20 hidden lg:block" style={{ animationDelay: '1s' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-primary rounded-full"></div>
+                      <span className="text-sm font-medium">New Lead!</span>
+                    </div>
+                  </div>
+                  
+                  <div className="absolute bottom-20 -right-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-accent/20 hidden lg:block" style={{ animationDelay: '3s' }}>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-accent" />
+                      <span className="text-sm font-medium">+247% ROI</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
