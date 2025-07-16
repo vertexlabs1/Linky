@@ -8,44 +8,10 @@ const HeroSection = () => {
 
   useEffect(() => {
     setMounted(true);
-    
-    // More aggressive throttling with debounce for smoother scroll
-    let ticking = false;
-    let lastScrollY = 0;
-    
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      
-      // Only update if scroll position changed significantly (reduces micro-jitters)
-      if (Math.abs(currentScrollY - lastScrollY) < 2) return;
-      
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          setScrollY(currentScrollY);
-          lastScrollY = currentScrollY;
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    // Use passive listener for better performance
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
   }, []);
 
-  // Calculate parallax effects with smoother transitions - using rounded values to prevent micro-movements
-  const heroMascotOpacity = Math.max(0, Math.round((1 - (scrollY / 150)) * 100) / 100);
-  const heroMascotScale = Math.max(0.3, Math.round((1 - (scrollY / 300)) * 100) / 100);
-  const textParallax = Math.round(scrollY * 0.1);
-  
-  // Calculate dynamic height reduction with rounded values
-  const heroHeight = Math.max(60, Math.round(80 - (scrollY / 10)));
-  const gridCollapseProgress = Math.min(1, Math.round((scrollY / 200) * 100) / 100);
-  const isScrolled = scrollY > 50;
+  // Simplified scroll detection - just check if scrolled, no complex calculations
+  const isScrolled = scrollY > 100;
 
   return (
     <section id="home" className="relative min-h-screen flex items-center overflow-hidden pt-20 hero-bg-pattern">
@@ -64,17 +30,10 @@ const HeroSection = () => {
       </div>
       
       <div className="container mx-auto px-6 lg:px-8 relative z-10">
-        <div 
-          className={`grid items-center max-w-7xl mx-auto transition-all duration-500 ${
-            isScrolled 
-              ? 'grid-cols-1 gap-6 min-h-[60vh] lg:grid-cols-2 lg:gap-12 lg:min-h-[80vh]' 
-              : 'lg:grid-cols-2 gap-12 min-h-[80vh]'
-          }`}
-          style={{ minHeight: window.innerWidth < 1024 ? `${heroHeight}vh` : '80vh' }}
-        >
+        <div className="grid lg:grid-cols-2 gap-12 items-center max-w-7xl mx-auto min-h-[80vh]">
           
           {/* Content - Left Side */}
-          <div className={`space-y-8 ${mounted ? 'slide-in-left' : 'opacity-0'}`} style={{ transform: `translateY(${textParallax}px)` }}>
+          <div className={`space-y-8 ${mounted ? 'slide-in-left' : 'opacity-0'}`}>
             
             {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium pulse-glow">
@@ -131,23 +90,8 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* Hero Mascot - Right Side - Responsive positioning */}
-          <div 
-            className={`${
-              isScrolled && window.innerWidth < 1024
-                ? 'absolute top-4 right-4 z-0' 
-                : 'flex justify-center lg:justify-end relative'
-            } ${mounted ? 'slide-in-right' : 'opacity-0'} transition-all duration-500`}
-            style={{
-              opacity: heroMascotOpacity,
-              transform: `translate3d(0, ${Math.round(scrollY * 0.05)}px, 0) scale(${
-                isScrolled && window.innerWidth < 1024 ? 0.3 : heroMascotScale
-              })`,
-              pointerEvents: (isScrolled && window.innerWidth < 1024) ? 'none' : 'auto',
-              willChange: 'transform, opacity',
-              backfaceVisibility: 'hidden'
-            }}
-          >
+          {/* Hero Mascot - Right Side - Static positioning to prevent jitter */}
+          <div className={`flex justify-center lg:justify-end ${mounted ? 'slide-in-right' : 'opacity-0'}`}>
             <div className="relative" style={{ transform: 'translateZ(0)' }}>
               {/* Glow effect behind mascot */}
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 pulse-glow" />
@@ -157,31 +101,27 @@ const HeroSection = () => {
                 alt="Linky Robot" 
                 className="relative object-contain float-animation"
                 style={{
-                  width: (isScrolled && window.innerWidth < 1024) ? '120px' : '500px',
-                  height: (isScrolled && window.innerWidth < 1024) ? '120px' : '500px',
+                  width: '500px',
+                  height: '500px',
                   transform: 'translateZ(0)',
                   willChange: 'auto'
                 }}
               />
               
-              {/* Floating UI elements around mascot - hide on mobile when scrolled */}
-              {!(isScrolled && window.innerWidth < 1024) && (
-                <>
-                  <div className="absolute top-10 -left-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-primary/20 hidden lg:block" style={{ animationDelay: '1s' }}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-primary rounded-full"></div>
-                      <span className="text-sm font-medium">New Lead!</span>
-                    </div>
-                  </div>
-                  
-                  <div className="absolute bottom-20 -right-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-accent/20 hidden lg:block" style={{ animationDelay: '3s' }}>
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-accent" />
-                      <span className="text-sm font-medium">+247% ROI</span>
-                    </div>
-                  </div>
-                </>
-              )}
+              {/* Floating UI elements around mascot */}
+              <div className="absolute top-10 -left-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-primary/20 hidden lg:block" style={{ animationDelay: '1s' }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-primary rounded-full"></div>
+                  <span className="text-sm font-medium">New Lead!</span>
+                </div>
+              </div>
+              
+              <div className="absolute bottom-20 -right-10 bg-card p-3 rounded-xl shadow-lg float-animation border border-accent/20 hidden lg:block" style={{ animationDelay: '3s' }}>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-accent" />
+                  <span className="text-sm font-medium">+247% ROI</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
