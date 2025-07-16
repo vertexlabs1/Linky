@@ -140,7 +140,8 @@ const HeroSection = () => {
         </div>
         
         {/* Demo Video */}
-        <div className={`pt-12 max-w-4xl mx-auto ${mounted ? 'fade-in-up' : 'opacity-0'}`}>
+        <div className="pt-12 max-w-4xl mx-auto opacity-100 visible"
+             style={{ animationDelay: '2.5s' }}>
           <div className="text-center mb-8">
             <h3 className="text-2xl font-bold text-foreground mb-2">See Linky in Action</h3>
             <p className="text-muted-foreground">Watch how easy it is to create and manage your LinkedIn automation</p>
