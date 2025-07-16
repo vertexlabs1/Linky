@@ -31,6 +31,9 @@ const Navigation = () => {
   const fadeStart = 100; // Start fading later
   const fadeDistance = isMobile ? 1200 : 800; // Much longer fade distance
   const mascotOpacity = Math.max(0.1, Math.min(1, 1 - (scrollY - fadeStart) / fadeDistance)); // Never goes below 0.1 opacity
+  
+  // Debug logging
+  console.log('Scroll Y:', scrollY, 'Mobile:', isMobile, 'Opacity:', mascotOpacity, 'Fade Distance:', fadeDistance);
 
   return (
     <>
