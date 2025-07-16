@@ -4,6 +4,7 @@ import AuthModals from './AuthModals';
 
 const Navigation = () => {
   const [scrollY, setScrollY] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
 
@@ -12,13 +13,24 @@ const Navigation = () => {
       setScrollY(window.scrollY);
     };
 
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('resize', checkMobile);
+    checkMobile(); // Check on initial load
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
-  // Navigation mascot appears as hero mascot fades (starts invisible)
-  const mascotOpacity = Math.min(1, Math.max(0, (scrollY - 100) / 100)); // Starts appearing at 100px scroll
-  const isScrolled = scrollY > 50;
+  // Much slower fade for mobile - responsive to scroll speed
+  const fadeStart = 50; // Start fading earlier
+  const fadeDistance = isMobile ? 600 : 200; // Much longer fade distance on mobile
+  const mascotOpacity = Math.min(1, Math.max(0, (scrollY - fadeStart) / fadeDistance));
 
   return (
     <>

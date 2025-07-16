@@ -249,6 +249,12 @@ All colors MUST be HSL.
   }
 }
 
+@media (max-width: 767px) {
+  .transition-smooth {
+    transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+}
+
 /* Keyframe animations */
 @keyframes float {
   0%, 100% { transform: translateY(0px) scale(1); }
