@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, TrendingUp, Users, Zap } from 'lucide-react';
+import { Sparkles, TrendingUp, Users, Zap, Play } from 'lucide-react';
 
 const HeroSection = () => {
   const [scrollY, setScrollY] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -140,16 +141,33 @@ const HeroSection = () => {
         
         {/* Demo Video */}
         <div className={`pt-20 max-w-4xl mx-auto ${mounted ? 'fade-in-up' : 'opacity-0'}`}>
-          <div className="relative bg-card rounded-3xl shadow-card overflow-hidden hover-lift border border-primary/10">
+          <div className="relative bg-card rounded-3xl shadow-card overflow-hidden hover-lift border border-primary/10 group">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
-            <iframe
-              className="w-full aspect-video relative z-10"
-              src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-              title="Linky Demo"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+            
+            {/* Video Container */}
+            <div className="relative aspect-video">
+              <iframe
+                className="w-full h-full relative z-10"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ?controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3"
+                title="Linky Demo"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                onLoad={() => setIsVideoPlaying(false)}
+              />
+              
+              {/* Custom Play Button Overlay */}
+              {!isVideoPlaying && (
+                <div 
+                  className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-20 cursor-pointer transition-all duration-300 group-hover:bg-black/10"
+                  onClick={() => setIsVideoPlaying(true)}
+                >
+                  <div className="bg-white/90 hover:bg-white rounded-full p-6 shadow-2xl transition-all duration-300 hover:scale-110 pulse-glow">
+                    <Play className="w-12 h-12 text-primary ml-1" fill="currentColor" />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           
           {/* Video caption */}
