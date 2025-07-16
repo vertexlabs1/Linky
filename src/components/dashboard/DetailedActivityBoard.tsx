@@ -1,0 +1,672 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Users, 
+  Eye, 
+  ThumbsUp, 
+  MessageSquare,
+  Activity,
+  Calendar,
+  Target,
+  Zap,
+  MapPin,
+  Building,
+  Award,
+  Star,
+  Clock,
+  BarChart3,
+  PieChart,
+  LineChart,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus
+} from 'lucide-react';
+
+interface LinkedInProfileData {
+  profile: {
+    name: string;
+    title: string;
+    company: string;
+    location: string;
+    profilePicture: string;
+    linkedinUrl: string;
+    industry: string;
+    summary: string;
+    experience: Array<{
+      title: string;
+      company: string;
+      duration: string;
+      description: string;
+    }>;
+    education: Array<{
+      school: string;
+      degree: string;
+      year: string;
+    }>;
+    skills: Array<{
+      name: string;
+      endorsements: number;
+    }>;
+  };
+  stats: {
+    profileViews: {
+      total: number;
+      thisWeek: number;
+      thisMonth: number;
+      trend: number;
+    };
+    connections: {
+      total: number;
+      newThisWeek: number;
+      trend: number;
+    };
+    endorsements: {
+      total: number;
+      newThisWeek: number;
+      trend: number;
+    };
+    posts: {
+      total: number;
+      thisWeek: number;
+      engagement: number;
+    };
+    engagement: {
+      rate: number;
+      likes: number;
+      comments: number;
+      shares: number;
+    };
+  };
+  activity: {
+    recentPosts: Array<{
+      id: string;
+      content: string;
+      timestamp: Date;
+      engagement: {
+        likes: number;
+        comments: number;
+        shares: number;
+      };
+      reach: number;
+    }>;
+    recentViews: Array<{
+      id: string;
+      viewer: {
+        name: string;
+        title: string;
+        company: string;
+        avatar: string;
+      };
+      timestamp: Date;
+    }>;
+    recentConnections: Array<{
+      id: string;
+      name: string;
+      title: string;
+      company: string;
+      avatar: string;
+      timestamp: Date;
+    }>;
+  };
+  analytics: {
+    weeklyViews: Array<{ date: string; views: number }>;
+    monthlyGrowth: Array<{ month: string; growth: number }>;
+    topIndustries: Array<{ industry: string; percentage: number }>;
+    engagementTrends: Array<{ date: string; engagement: number }>;
+  };
+}
+
+const DetailedActivityBoard: React.FC = () => {
+  const [profileData, setProfileData] = useState<LinkedInProfileData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Mock data for demonstration
+  const mockProfileData: LinkedInProfileData = {
+    profile: {
+      name: 'Will Stewart',
+      title: 'Senior Software Engineer',
+      company: 'TechCorp Inc.',
+      location: 'San Francisco, CA',
+      profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+      linkedinUrl: 'https://linkedin.com/in/willstewart',
+      industry: 'Technology',
+      summary: 'Passionate software engineer with 8+ years of experience building scalable web applications and leading development teams.',
+      experience: [
+        {
+          title: 'Senior Software Engineer',
+          company: 'TechCorp Inc.',
+          duration: '2021 - Present',
+          description: 'Leading development of cloud-native applications using React, Node.js, and AWS.'
+        },
+        {
+          title: 'Software Engineer',
+          company: 'StartupXYZ',
+          duration: '2019 - 2021',
+          description: 'Built and maintained multiple web applications using modern JavaScript frameworks.'
+        }
+      ],
+      education: [
+        {
+          school: 'Stanford University',
+          degree: 'Bachelor of Science in Computer Science',
+          year: '2019'
+        }
+      ],
+      skills: [
+        { name: 'React.js', endorsements: 45 },
+        { name: 'Node.js', endorsements: 38 },
+        { name: 'TypeScript', endorsements: 32 },
+        { name: 'AWS', endorsements: 28 },
+        { name: 'Python', endorsements: 25 }
+      ]
+    },
+    stats: {
+      profileViews: {
+        total: 1247,
+        thisWeek: 89,
+        thisMonth: 342,
+        trend: 13.4
+      },
+      connections: {
+        total: 567,
+        newThisWeek: 12,
+        trend: 3.1
+      },
+      endorsements: {
+        total: 89,
+        newThisWeek: 3,
+        trend: 5.2
+      },
+      posts: {
+        total: 23,
+        thisWeek: 2,
+        engagement: 156
+      },
+      engagement: {
+        rate: 23.4,
+        likes: 89,
+        comments: 34,
+        shares: 12
+      }
+    },
+    activity: {
+      recentPosts: [
+        {
+          id: '1',
+          content: 'Excited to share that I\'ve joined TechCorp as Senior Software Engineer! Looking forward to building amazing products with this incredible team.',
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          engagement: { likes: 45, comments: 12, shares: 3 },
+          reach: 1200
+        },
+        {
+          id: '2',
+          content: 'Just published a new article on React performance optimization techniques. Check it out!',
+          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          engagement: { likes: 23, comments: 8, shares: 5 },
+          reach: 800
+        }
+      ],
+      recentViews: [
+        {
+          id: '1',
+          viewer: {
+            name: 'Sarah Johnson',
+            title: 'Engineering Manager',
+            company: 'Google',
+            avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face'
+          },
+          timestamp: new Date(Date.now() - 30 * 60 * 1000)
+        },
+        {
+          id: '2',
+          viewer: {
+            name: 'Mike Chen',
+            title: 'Senior Developer',
+            company: 'Microsoft',
+            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face'
+          },
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000)
+        }
+      ],
+      recentConnections: [
+        {
+          id: '1',
+          name: 'Alex Rodriguez',
+          title: 'Product Manager',
+          company: 'Netflix',
+          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face',
+          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000)
+        }
+      ]
+    },
+    analytics: {
+      weeklyViews: [
+        { date: 'Mon', views: 12 },
+        { date: 'Tue', views: 18 },
+        { date: 'Wed', views: 15 },
+        { date: 'Thu', views: 22 },
+        { date: 'Fri', views: 19 },
+        { date: 'Sat', views: 8 },
+        { date: 'Sun', views: 5 }
+      ],
+      monthlyGrowth: [
+        { month: 'Jan', growth: 5.2 },
+        { month: 'Feb', growth: 8.1 },
+        { month: 'Mar', growth: 12.3 },
+        { month: 'Apr', growth: 15.7 }
+      ],
+      topIndustries: [
+        { industry: 'Technology', percentage: 45 },
+        { industry: 'Finance', percentage: 20 },
+        { industry: 'Healthcare', percentage: 15 },
+        { industry: 'Education', percentage: 10 },
+        { industry: 'Other', percentage: 10 }
+      ],
+      engagementTrends: [
+        { date: 'Week 1', engagement: 18 },
+        { date: 'Week 2', engagement: 22 },
+        { date: 'Week 3', engagement: 25 },
+        { date: 'Week 4', engagement: 23 }
+      ]
+    }
+  };
+
+  useEffect(() => {
+    // Simulate loading
+    setTimeout(() => {
+      setProfileData(mockProfileData);
+      setIsLoading(false);
+    }, 1000);
+  }, []);
+
+  const getTrendIcon = (trend: number) => {
+    if (trend > 0) return <ArrowUpRight className="w-4 h-4 text-green-600" />;
+    if (trend < 0) return <ArrowDownRight className="w-4 h-4 text-red-600" />;
+    return <Minus className="w-4 h-4 text-gray-600" />;
+  };
+
+  const getTrendColor = (trend: number) => {
+    if (trend > 0) return 'text-green-600';
+    if (trend < 0) return 'text-red-600';
+    return 'text-gray-600';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-6 py-8">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profileData) {
+    return (
+      <div className="container mx-auto px-6 py-8">
+        <div className="text-center">
+          <p className="text-muted-foreground">No profile data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-6 py-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">LinkedIn Activity Board</h1>
+          <p className="text-muted-foreground">Detailed analytics and insights from your LinkedIn profile</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Badge variant="secondary">
+            Last updated: {new Date().toLocaleTimeString()}
+          </Badge>
+          <Button variant="outline" size="sm">
+            <Calendar className="w-4 h-4 mr-2" />
+            Export Data
+          </Button>
+        </div>
+      </div>
+
+      {/* Profile Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Avatar className="w-10 h-10">
+              <AvatarImage src={profileData.profile.profilePicture} />
+              <AvatarFallback>{profileData.profile.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="text-xl font-semibold">{profileData.profile.name}</div>
+              <div className="text-sm text-muted-foreground">{profileData.profile.title} at {profileData.profile.company}</div>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Eye className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="font-semibold">{profileData.stats.profileViews.total}</div>
+                <div className="text-sm text-muted-foreground">Profile Views</div>
+                <div className="flex items-center space-x-1 text-xs">
+                  {getTrendIcon(profileData.stats.profileViews.trend)}
+                  <span className={getTrendColor(profileData.stats.profileViews.trend)}>
+                    {profileData.stats.profileViews.trend > 0 ? '+' : ''}{profileData.stats.profileViews.trend}%
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Users className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="font-semibold">{profileData.stats.connections.total}</div>
+                <div className="text-sm text-muted-foreground">Connections</div>
+                <div className="flex items-center space-x-1 text-xs">
+                  {getTrendIcon(profileData.stats.connections.trend)}
+                  <span className={getTrendColor(profileData.stats.connections.trend)}>
+                    {profileData.stats.connections.trend > 0 ? '+' : ''}{profileData.stats.connections.trend}%
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <ThumbsUp className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <div className="font-semibold">{profileData.stats.endorsements.total}</div>
+                <div className="text-sm text-muted-foreground">Endorsements</div>
+                <div className="flex items-center space-x-1 text-xs">
+                  {getTrendIcon(profileData.stats.endorsements.trend)}
+                  <span className={getTrendColor(profileData.stats.endorsements.trend)}>
+                    {profileData.stats.endorsements.trend > 0 ? '+' : ''}{profileData.stats.endorsements.trend}%
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <MessageSquare className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <div className="font-semibold">{profileData.stats.posts.total}</div>
+                <div className="text-sm text-muted-foreground">Posts</div>
+                <div className="text-xs text-muted-foreground">
+                  {profileData.stats.posts.engagement} engagements
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Detailed Analytics */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Weekly Views Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BarChart3 className="w-5 h-5" />
+                  <span>Weekly Profile Views</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {profileData.analytics.weeklyViews.map((day, index) => (
+                    <div key={day.date} className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{day.date}</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-32 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full" 
+                            style={{ width: `${(day.views / 25) * 100}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm text-muted-foreground w-8">{day.views}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Engagement Rate */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <PieChart className="w-5 h-5" />
+                  <span>Engagement Rate</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-primary">{profileData.stats.engagement.rate}%</div>
+                    <div className="text-sm text-muted-foreground">Overall Engagement Rate</div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-lg font-semibold">{profileData.stats.engagement.likes}</div>
+                      <div className="text-xs text-muted-foreground">Likes</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{profileData.stats.engagement.comments}</div>
+                      <div className="text-xs text-muted-foreground">Comments</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{profileData.stats.engagement.shares}</div>
+                      <div className="text-xs text-muted-foreground">Shares</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recent Posts */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <MessageSquare className="w-5 h-5" />
+                  <span>Recent Posts</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {profileData.activity.recentPosts.map((post) => (
+                    <div key={post.id} className="border rounded-lg p-4">
+                      <p className="text-sm mb-3">{post.content}</p>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{post.timestamp.toLocaleDateString()}</span>
+                        <div className="flex items-center space-x-4">
+                          <span>❤️ {post.engagement.likes}</span>
+                          <span>💬 {post.engagement.comments}</span>
+                          <span>📤 {post.engagement.shares}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Profile Views */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Eye className="w-5 h-5" />
+                  <span>Recent Profile Views</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {profileData.activity.recentViews.map((view) => (
+                    <div key={view.id} className="flex items-center space-x-3">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={view.viewer.avatar} />
+                        <AvatarFallback>{view.viewer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{view.viewer.name}</div>
+                        <div className="text-xs text-muted-foreground">{view.viewer.title} at {view.viewer.company}</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {view.timestamp.toLocaleTimeString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Monthly Growth */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <LineChart className="w-5 h-5" />
+                  <span>Monthly Growth</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {profileData.analytics.monthlyGrowth.map((month) => (
+                    <div key={month.month} className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{month.month}</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-32 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-green-600 h-2 rounded-full" 
+                            style={{ width: `${Math.min(month.growth * 5, 100)}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm text-muted-foreground w-12">{month.growth}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top Industries */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Building className="w-5 h-5" />
+                  <span>Top Industries</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {profileData.analytics.topIndustries.map((industry) => (
+                    <div key={industry.industry} className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{industry.industry}</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-32 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-purple-600 h-2 rounded-full" 
+                            style={{ width: `${industry.percentage}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm text-muted-foreground w-12">{industry.percentage}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="profile" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Skills & Endorsements */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Award className="w-5 h-5" />
+                  <span>Top Skills</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {profileData.profile.skills.map((skill) => (
+                    <div key={skill.name} className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{skill.name}</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-24 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full" 
+                            style={{ width: `${(skill.endorsements / 50) * 100}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm text-muted-foreground w-8">{skill.endorsements}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Experience */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Building className="w-5 h-5" />
+                  <span>Experience</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {profileData.profile.experience.map((exp, index) => (
+                    <div key={index} className="border-l-2 border-blue-200 pl-4">
+                      <div className="font-medium">{exp.title}</div>
+                      <div className="text-sm text-muted-foreground">{exp.company}</div>
+                      <div className="text-xs text-muted-foreground">{exp.duration}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default DetailedActivityBoard; 

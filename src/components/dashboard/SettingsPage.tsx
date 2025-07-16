@@ -15,11 +15,21 @@ import {
   Trash2,
   Save,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Users
 } from 'lucide-react';
 
 const SettingsPage: React.FC = () => {
-  const [linkedinUrl, setLinkedinUrl] = useState('');
+  // User Profile State
+  const [userProfile, setUserProfile] = useState({
+    firstName: 'Will',
+    lastName: 'Stewart',
+    email: 'will@98c.org',
+    phone: '+1 (555) 123-4567',
+    linkedinUrl: 'https://linkedin.com/in/willstewart'
+  });
+
+  // Settings State
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -28,7 +38,7 @@ const SettingsPage: React.FC = () => {
   const handleSaveSettings = () => {
     // Save settings logic here
     console.log('Settings saved:', {
-      linkedinUrl,
+      userProfile,
       isMonitoring,
       emailNotifications,
       pushNotifications,
@@ -37,7 +47,7 @@ const SettingsPage: React.FC = () => {
   };
 
   const handleStartMonitoring = () => {
-    if (linkedinUrl) {
+    if (userProfile.linkedinUrl) {
       setIsMonitoring(true);
     }
   };
@@ -50,7 +60,7 @@ const SettingsPage: React.FC = () => {
     return url.includes('linkedin.com/in/') && url.startsWith('https://');
   };
 
-  const isUrlValid = linkedinUrl ? validateLinkedInUrl(linkedinUrl) : true;
+  const isUrlValid = userProfile.linkedinUrl ? validateLinkedInUrl(userProfile.linkedinUrl) : true;
 
   return (
     <div className="container mx-auto px-6 py-8 space-y-6">
@@ -63,6 +73,60 @@ const SettingsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Settings */}
         <div className="lg:col-span-2 space-y-6">
+          {/* User Profile */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="w-5 h-5" />
+                <span>Profile Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="first-name">First Name</Label>
+                  <Input
+                    id="first-name"
+                    value={userProfile.firstName}
+                    onChange={(e) => setUserProfile({...userProfile, firstName: e.target.value})}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="last-name">Last Name</Label>
+                  <Input
+                    id="last-name"
+                    value={userProfile.lastName}
+                    onChange={(e) => setUserProfile({...userProfile, lastName: e.target.value})}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={userProfile.email}
+                    onChange={(e) => setUserProfile({...userProfile, email: e.target.value})}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={userProfile.phone}
+                    onChange={(e) => setUserProfile({...userProfile, phone: e.target.value})}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* LinkedIn Profile Configuration */}
           <Card>
             <CardHeader>
@@ -78,25 +142,25 @@ const SettingsPage: React.FC = () => {
                   <Input
                     id="linkedin-url"
                     placeholder="https://linkedin.com/in/yourprofile"
-                    value={linkedinUrl}
-                    onChange={(e) => setLinkedinUrl(e.target.value)}
-                    className={`flex-1 ${!isUrlValid && linkedinUrl ? 'border-red-500' : ''}`}
+                    value={userProfile.linkedinUrl}
+                    onChange={(e) => setUserProfile({...userProfile, linkedinUrl: e.target.value})}
+                    className={`flex-1 ${!isUrlValid && userProfile.linkedinUrl ? 'border-red-500' : ''}`}
                   />
                   <Button 
                     onClick={isMonitoring ? handleStopMonitoring : handleStartMonitoring}
-                    disabled={!linkedinUrl || !isUrlValid}
+                    disabled={!userProfile.linkedinUrl || !isUrlValid}
                     variant={isMonitoring ? "destructive" : "default"}
                   >
                     {isMonitoring ? 'Stop' : 'Start'} Monitoring
                   </Button>
                 </div>
-                {linkedinUrl && !isUrlValid && (
+                {userProfile.linkedinUrl && !isUrlValid && (
                   <p className="text-sm text-red-500 mt-1 flex items-center">
                     <AlertCircle className="w-4 h-4 mr-1" />
                     Please enter a valid LinkedIn profile URL
                   </p>
                 )}
-                {isUrlValid && linkedinUrl && (
+                {isUrlValid && userProfile.linkedinUrl && (
                   <p className="text-sm text-green-600 mt-1 flex items-center">
                     <CheckCircle className="w-4 h-4 mr-1" />
                     Valid LinkedIn profile URL
