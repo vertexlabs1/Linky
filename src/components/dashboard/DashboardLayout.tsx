@@ -5,6 +5,7 @@ import {
   Users, 
   Target, 
   MessageSquare, 
+  Activity,
   Search, 
   Download, 
   Maximize2, 
@@ -37,6 +38,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const navigation = [
     { name: 'HOME', href: '/dashboard', icon: Home },
+    { name: 'ACTIVITY', href: '/dashboard/activity', icon: Activity },
     { name: 'LEADS', href: '/dashboard/leads', icon: Users },
     { name: 'TARGETS', href: '/dashboard/targets', icon: Target },
     { name: 'CONTENT ENGINE', href: '/dashboard/content', icon: MessageSquare },
