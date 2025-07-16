@@ -5,30 +5,37 @@ const HeroSection = () => {
   const [scrollY, setScrollY] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [ticking, setTicking] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     
-    // Track scroll for parallax effects
+    // Throttled scroll handler using requestAnimationFrame
     const handleScroll = () => {
-      setScrollY(window.scrollY);
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setScrollY(window.scrollY);
+          setTicking(false);
+        });
+        setTicking(true);
+      }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [ticking]);
 
-  // Calculate parallax effects - faster fade for mobile
-  const heroMascotOpacity = Math.max(0, 1 - (scrollY / 150));
-  const heroMascotScale = Math.max(0.3, 1 - (scrollY / 300));
-  const textParallax = scrollY * 0.1;
+  // Calculate parallax effects with smoother transitions - using rounded values to prevent micro-movements
+  const heroMascotOpacity = Math.max(0, Math.round((1 - (scrollY / 150)) * 100) / 100);
+  const heroMascotScale = Math.max(0.3, Math.round((1 - (scrollY / 300)) * 100) / 100);
+  const textParallax = Math.round(scrollY * 0.1);
   
-  // Calculate dynamic height reduction to eliminate blank space
-  const heroHeight = Math.max(60, 80 - (scrollY / 10));
-  const gridCollapseProgress = Math.min(1, scrollY / 200);
+  // Calculate dynamic height reduction with rounded values
+  const heroHeight = Math.max(60, Math.round(80 - (scrollY / 10)));
+  const gridCollapseProgress = Math.min(1, Math.round((scrollY / 200) * 100) / 100);
   const isScrolled = scrollY > 50;
 
   return (
@@ -124,13 +131,15 @@ const HeroSection = () => {
             } ${mounted ? 'slide-in-right' : 'opacity-0'} transition-all duration-500`}
             style={{
               opacity: heroMascotOpacity,
-              transform: `scale(${
+              transform: `translate3d(0, ${Math.round(scrollY * 0.05)}px, 0) scale(${
                 isScrolled && window.innerWidth < 1024 ? 0.3 : heroMascotScale
-              }) translateY(${scrollY * 0.05}px)`,
-              pointerEvents: (isScrolled && window.innerWidth < 1024) ? 'none' : 'auto'
+              })`,
+              pointerEvents: (isScrolled && window.innerWidth < 1024) ? 'none' : 'auto',
+              willChange: 'transform, opacity',
+              backfaceVisibility: 'hidden'
             }}
           >
-            <div className="relative">
+            <div className="relative" style={{ transform: 'translateZ(0)' }}>
               {/* Glow effect behind mascot */}
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 pulse-glow" />
               
@@ -141,6 +150,8 @@ const HeroSection = () => {
                 style={{
                   width: (isScrolled && window.innerWidth < 1024) ? '120px' : '500px',
                   height: (isScrolled && window.innerWidth < 1024) ? '120px' : '500px',
+                  transform: 'translateZ(0)',
+                  willChange: 'auto'
                 }}
               />
               
