@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import Navigation from './Navigation';
 import HeroSection from './HeroSection';
 import ProblemSection from './ProblemSection';
-import FeaturesSection from './FeaturesSection';
 import PricingSection from './PricingSection';
 import FAQSection from './FAQSection';
 import Footer from './Footer';
@@ -56,7 +55,6 @@ const LandingPage = () => {
       <Navigation />
       <HeroSection />
       <ProblemSection />
-      <FeaturesSection />
       <PricingSection />
       <FAQSection />
       <Footer />
