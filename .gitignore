@@ -37,3 +37,4 @@ stripe_*
 
 # Supabase
 .supabase
+.vercel
