@@ -22,7 +22,7 @@ serve(async (req) => {
     console.log('Sending password reset email to:', email)
 
     // Create password reset link
-    const passwordResetUrl = `${Deno.env.get('SITE_URL') || 'http://localhost:8082'}/setup-password?email=${encodeURIComponent(email)}&reset=true`
+    const passwordResetUrl = `${Deno.env.get('SITE_URL') || 'https://www.uselinky.app'}/setup-password?email=${encodeURIComponent(email)}&reset=true`
 
     const { data, error } = await resend.emails.send({
       from: 'Linky <hello@linky.com>',

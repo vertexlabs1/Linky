@@ -20,8 +20,8 @@ serve(async (req) => {
     
     console.log('Sending founding member email to:', email, 'Name:', firstName)
 
-    // Create password setup link - hardcode to correct port for now
-    const passwordSetupUrl = `http://localhost:8082/setup-password?email=${encodeURIComponent(email)}&session=${sessionId}`
+    // Create password setup link - use production domain
+    const passwordSetupUrl = `https://www.uselinky.app/setup-password?email=${encodeURIComponent(email)}&session=${sessionId}`
 
     // Use direct fetch to Resend API (same as working welcome email function)
     const resendResponse = await fetch('https://api.resend.com/emails', {
