@@ -66,8 +66,8 @@ const FoundingMemberSection = () => {
       // 2. Pass user id as metadata to Stripe
       const { url } = await api.createFoundingMemberSchedule({
         customerEmail: form.email,
-        successUrl: `${window.location.origin}/founding-member-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: window.location.origin,
+        successUrl: `https://www.uselinky.app/founding-member-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `https://www.uselinky.app`,
         metadata: {
           user_id: user.id,
           firstName: form.firstName,
