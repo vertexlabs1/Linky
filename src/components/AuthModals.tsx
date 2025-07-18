@@ -184,8 +184,8 @@ const AuthModals = ({
           const { url } = await api.createCheckoutSession({
             priceId: PRICE_IDS.FOUNDING_MEMBER,
             customerEmail: signUpData.email,
-            successUrl: `http://localhost:8082/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `http://localhost:8082/`,
+            successUrl: `https://www.uselinky.app/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `https://www.uselinky.app/`,
           });
           
           // Redirect to Stripe checkout
