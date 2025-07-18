@@ -142,7 +142,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const firstName = user.first_name || '';
     const lastName = user.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
-    return fullName || 'User';
+    return fullName || user.email?.split('@')[0] || 'User';
   };
 
   const getUserInitials = () => {
