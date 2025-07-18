@@ -75,7 +75,7 @@ const SetupPassword = () => {
       }
 
       // Update the user record to mark password as set and link Auth user
-      if (sessionId && data.user) {
+      if (data.user) {
         const { error: updateError } = await supabase
           .from('users')
           .update({ 
@@ -83,8 +83,7 @@ const SetupPassword = () => {
             password_set: true,
             email_verified: true 
           })
-          .eq('email', email)
-          .eq('stripe_session_id', sessionId);
+          .eq('email', email);
 
         if (updateError) {
           console.error('Error updating user record:', updateError);

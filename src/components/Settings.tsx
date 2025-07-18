@@ -92,27 +92,49 @@ const Settings = () => {
           .single();
 
         if (error) {
-          console.error('Error fetching user data:', error);
-          // Fallback to auth user data
-          const fallbackUser = {
-            first_name: authUser.user_metadata?.first_name || 'Demo',
-            last_name: authUser.user_metadata?.last_name || 'User',
-            email: authUser.email || 'demo@example.com',
-            phone: '',
-            founding_member: true,
-            subscription_plan: 'founding_member',
-            subscription_status: 'active',
-            created_at: authUser.created_at || new Date().toISOString()
-          };
-          setUser(fallbackUser);
-          setUserInfo({
-            firstName: fallbackUser.first_name || '',
-            lastName: fallbackUser.last_name || '',
-            email: fallbackUser.email || '',
-            phone: fallbackUser.phone || '',
-            company: '',
-            jobTitle: ''
-          });
+          console.error('Error fetching user data by auth_user_id:', error);
+          
+          // Try to fetch by email as fallback
+          const { data: emailUserData, error: emailError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', authUser.email)
+            .single();
+
+          if (emailError || !emailUserData) {
+            console.error('Error fetching user data by email:', emailError);
+            // Fallback to auth user data
+            const fallbackUser = {
+              first_name: authUser.user_metadata?.first_name || 'Demo',
+              last_name: authUser.user_metadata?.last_name || 'User',
+              email: authUser.email || 'demo@example.com',
+              phone: '',
+              founding_member: true,
+              subscription_plan: 'founding_member',
+              subscription_status: 'active',
+              created_at: authUser.created_at || new Date().toISOString()
+            };
+            setUser(fallbackUser);
+            setUserInfo({
+              firstName: fallbackUser.first_name || '',
+              lastName: fallbackUser.last_name || '',
+              email: fallbackUser.email || '',
+              phone: fallbackUser.phone || '',
+              company: '',
+              jobTitle: ''
+            });
+          } else {
+            console.log('Found user by email:', emailUserData.email);
+            setUser(emailUserData);
+            setUserInfo({
+              firstName: emailUserData.first_name || '',
+              lastName: emailUserData.last_name || '',
+              email: emailUserData.email || '',
+              phone: emailUserData.phone || '',
+              company: '',
+              jobTitle: ''
+            });
+          }
         } else {
           setUser(userData);
           setUserInfo({
