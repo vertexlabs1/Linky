@@ -107,18 +107,25 @@ async function handleCheckoutCompleted(session: any) {
       let subscriptionPlan = 'Prospector' // Default
       let subscriptionType = 'regular'
       let foundingMember = false
+      let promoActive = false
+      let promoType = null
+      let promoExpirationDate = null
       
       if (session.metadata?.type === 'founding_member_schedule') {
         subscriptionPlan = 'Prospector' // Founding members start on Prospector
         subscriptionType = 'founding_member_schedule'
         foundingMember = true
+        promoActive = true
+        promoType = 'founding_member'
+        // Set expiration to 3 months from now
+        promoExpirationDate = new Date(Date.now() + 3 * 30 * 24 * 60 * 60 * 1000).toISOString()
       }
       
       // Check if we have a user_id in metadata (new flow)
       if (session.metadata?.user_id) {
         console.log('🔄 Using user_id from metadata to update existing user:', session.metadata.user_id)
         
-        // Update existing user record
+        // Update existing user record with proper promo tracking
         const { data: userData, error: userError } = await supabase
           .from('users')
           .update({
@@ -131,6 +138,9 @@ async function handleCheckoutCompleted(session: any) {
             subscription_plan: subscriptionPlan,
             subscription_type: subscriptionType,
             founding_member: foundingMember,
+            promo_active: promoActive,
+            promo_type: promoType,
+            promo_expiration_date: promoExpirationDate,
             updated_at: new Date().toISOString()
           })
           .eq('id', session.metadata.user_id)
@@ -161,7 +171,10 @@ async function handleCheckoutCompleted(session: any) {
             subscription_status: 'active',
             subscription_plan: subscriptionPlan,
             subscription_type: subscriptionType,
-            founding_member: foundingMember
+            founding_member: foundingMember,
+            promo_active: promoActive,
+            promo_type: promoType,
+            promo_expiration_date: promoExpirationDate
           })
           .select()
           .single()
@@ -267,11 +280,14 @@ async function handleSubscriptionScheduleReleased(schedule: any) {
     console.log('Found user for transition:', user.email)
     
     // Update user record - they're now on regular Prospector billing
+    // End the promo period and transition to regular billing
     const { error: updateError } = await supabase
       .from('users')
       .update({ 
         subscription_type: 'regular_monthly',
         subscription_status: 'active',
+        promo_active: false, // End the promo period
+        promo_expiration_date: new Date().toISOString(), // Mark as expired
         // Keep founding_member = true but update billing type
         updated_at: new Date().toISOString()
       })
@@ -283,6 +299,7 @@ async function handleSubscriptionScheduleReleased(schedule: any) {
     }
     
     console.log('✅ Successfully transitioned founding member to regular billing')
+    console.log('📊 User promo period ended, now on regular $75/month billing')
     
     // Send transition notification email
     await sendFoundingMemberTransitionEmail(user)

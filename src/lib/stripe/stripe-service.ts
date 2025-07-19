@@ -59,7 +59,7 @@ export const createCustomerPortalSession = async (customerId: string, returnUrl:
   }
 };
 
-// Updated Price IDs for different plans based on your Stripe setup
+// Updated Price IDs for SANDBOX environment (safe testing)
 export const PRICE_IDS = {
   // Founding Member pricing (subscription schedule: $25 for 3 months, then auto-upgrade)
   FOUNDING_MEMBER_PERIOD: 'price_1RmIXSK06fIw6v4hj3rTDsRj', // $25 every 3 months (1 iteration only)
