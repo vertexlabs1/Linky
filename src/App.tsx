@@ -8,7 +8,6 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import SetupPassword from "./pages/SetupPassword";
 import FoundingMemberSuccess from "./pages/FoundingMemberSuccess";
-import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import { adminRoutes } from "./admin/routes";
 
@@ -26,7 +25,6 @@ const App = () => (
             <Route path="/dashboard/*" element={<Dashboard />} />
             <Route path="/setup-password" element={<SetupPassword />} />
             <Route path="/founding-member-success" element={<FoundingMemberSuccess />} />
-            <Route path="/admin" element={<AdminDashboard />} />
             {adminRoutes}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
