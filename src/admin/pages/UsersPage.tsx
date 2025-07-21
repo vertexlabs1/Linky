@@ -60,6 +60,8 @@ export const UsersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'admins' | 'founding_members' | 'active' | 'inactive'>('all');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showTransactions, setShowTransactions] = useState(false);
@@ -92,6 +94,49 @@ export const UsersPage: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Open modal when selectedUserId changes
+  useEffect(() => {
+    if (selectedUserId) {
+      const user = users.find(u => u.id === selectedUserId);
+      setEditUser(user || null);
+      setShowEditModal(!!user);
+    } else {
+      setShowEditModal(false);
+      setEditUser(null);
+    }
+  }, [selectedUserId, users]);
+
+  const handleEditChange = (field: keyof User, value: any) => {
+    if (!editUser) return;
+    setEditUser({ ...editUser, [field]: value });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editUser) return;
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          first_name: editUser.first_name,
+          last_name: editUser.last_name,
+          email: editUser.email,
+          status: editUser.status,
+          is_admin: editUser.is_admin,
+        })
+        .eq('id', editUser.id);
+      if (error) {
+        toast.error('Failed to update user: ' + error.message);
+        return;
+      }
+      toast.success('User updated successfully!');
+      setShowEditModal(false);
+      setSelectedUserId(null);
+      await fetchUsers();
+    } catch (err) {
+      toast.error('Unexpected error updating user');
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -252,10 +297,10 @@ export const UsersPage: React.FC = () => {
         filtered = filtered.filter(user => user.founding_member === true);
         break;
       case 'active':
-        filtered = filtered.filter(user => user.subscription_status === 'active');
+        filtered = filtered.filter(user => user.status === 'active');
         break;
       case 'inactive':
-        filtered = filtered.filter(user => user.subscription_status !== 'active');
+        filtered = filtered.filter(user => user.status !== 'active');
         break;
       case 'all':
       default:
@@ -270,7 +315,7 @@ export const UsersPage: React.FC = () => {
     const totalUsers = users.length;
     const admins = users.filter(user => user.is_admin === true).length;
     const foundingMembers = users.filter(user => user.founding_member === true).length;
-    const activeSubscriptions = users.filter(user => user.subscription_status === 'active').length;
+    const activeSubscriptions = users.filter(user => user.status === 'active').length;
 
     return { totalUsers, admins, foundingMembers, activeSubscriptions };
   }, [users]);
@@ -283,6 +328,33 @@ export const UsersPage: React.FC = () => {
       'founding_member': 'bg-yellow-100 text-yellow-800'
     };
     return colors[plan?.toLowerCase()] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Add a function to get the proper status display
+  const getStatusDisplay = (user: User) => {
+    // Admin users who can log in should show as Active
+    if (user.is_admin && user.status === 'active') {
+      return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
+    }
+    
+    // Users who have paid but haven't set password
+    if (user.founding_member && user.status === 'inactive') {
+      return { text: 'Paid, Account Not Created', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
+    }
+    
+    // Regular status mapping
+    switch (user.status) {
+      case 'active':
+        return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
+      case 'inactive':
+        return { text: 'Inactive', color: 'text-red-600', icon: <XCircle className="w-3 h-3" /> };
+      case 'paid_not_onboarded':
+        return { text: 'Paid, Account Not Created', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
+      case 'pending':
+        return { text: 'Pending', color: 'text-yellow-600', icon: <AlertTriangle className="w-3 h-3" /> };
+      default:
+        return { text: 'Unknown', color: 'text-gray-600', icon: <AlertTriangle className="w-3 h-3" /> };
+    }
   };
 
   if (loading) {
@@ -401,21 +473,21 @@ export const UsersPage: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">User</th>
-                    <th className="text-left py-3 px-4">Role</th>
-                    <th className="text-left py-3 px-4">Subscription</th>
-                    <th className="text-left py-3 px-4">Status</th>
-                    <th className="text-left py-3 px-4">Joined</th>
-                    <th className="text-left py-3 px-4">Actions</th>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-4 px-6 font-medium text-gray-900">User</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-900">Role</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-900">Subscription</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-900">Status</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-900">Joined</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-900">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {filteredUsers.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="font-medium">{user.first_name} {user.last_name}</p>
+                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-5 px-6">
+                        <div className="space-y-1">
+                          <p className="font-medium text-gray-900">{user.first_name} {user.last_name}</p>
                           <p className="text-sm text-gray-500 flex items-center gap-1">
                             <Mail className="w-3 h-3" />
                             {user.email}
@@ -428,53 +500,60 @@ export const UsersPage: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-5 px-6">
                         <div className="flex items-center gap-2">
                           {user.is_admin === true ? (
-                            <Badge className="bg-red-100 text-red-800">
+                            <Badge className="bg-red-100 text-red-800 border border-red-200">
                               <Crown className="w-3 h-3 mr-1" />
                               Admin
                             </Badge>
                           ) : (
-                            <Badge variant="outline">
+                            <Badge variant="outline" className="bg-gray-50">
                               <User className="w-3 h-3 mr-1" />
                               User
                             </Badge>
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="space-y-1">
+                      <td className="py-5 px-6">
+                        <div className="space-y-2">
                           <Badge className={getSubscriptionBadgeColor(user.subscription_plan)}>
                             {user.subscription_plan?.replace(/_/g, ' ').toUpperCase()}
                           </Badge>
                           {user.founding_member === true && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs bg-yellow-50 border-yellow-200 text-yellow-800">
                               Founding Member
                             </Badge>
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1">
-                          {getStatusIcon(user.subscription_status)}
-                          <span className="text-sm">
-                            {user.subscription_status?.charAt(0).toUpperCase() + user.subscription_status?.slice(1)}
-                          </span>
+                      <td className="py-5 px-6">
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const statusDisplay = getStatusDisplay(user);
+                            return (
+                              <>
+                                {statusDisplay.icon}
+                                <span className={`text-sm font-medium ${statusDisplay.color}`}>
+                                  {statusDisplay.text}
+                                </span>
+                              </>
+                            );
+                          })()}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <td className="py-5 px-6">
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
                           <Calendar className="w-3 h-3" />
                           {new Date(user.created_at).toLocaleDateString()}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-5 px-6">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => setSelectedUserId(user.id)}
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-2 hover:bg-gray-50"
                         >
                           <Eye className="w-3 h-3" />
                           View Details
@@ -624,6 +703,61 @@ export const UsersPage: React.FC = () => {
             >
               Create User
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Modal */}
+      <Dialog open={showEditModal} onOpenChange={(open) => { setShowEditModal(open); if (!open) setSelectedUserId(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit User Details</DialogTitle>
+          </DialogHeader>
+          {editUser ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">First Name</label>
+                  <Input value={editUser.first_name} onChange={e => handleEditChange('first_name', e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Last Name</label>
+                  <Input value={editUser.last_name} onChange={e => handleEditChange('last_name', e.target.value)} />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium">Email</label>
+                  <Input value={editUser.email} onChange={e => handleEditChange('email', e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Status</label>
+                  <Select value={editUser.status} onValueChange={v => handleEditChange('status', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="paid_not_onboarded">Paid, Account Not Created</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Role</label>
+                  <Select value={editUser.is_admin ? 'admin' : 'user'} onValueChange={v => handleEditChange('is_admin', v === 'admin')}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>Loading...</div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowEditModal(false); setSelectedUserId(null); }}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={!editUser}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
