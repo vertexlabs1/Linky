@@ -14,7 +14,39 @@ serve(async (req) => {
   }
 
   try {
-    const { email, resetUrl, firstName } = await req.json()
+    const { email, firstName } = await req.json()
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables')
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Generate password reset link using Supabase Auth
+    const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: email,
+      options: {
+        redirectTo: 'https://www.uselinky.app/reset-password'
+      }
+    })
+
+    if (resetError) {
+      console.error('Failed to generate reset link:', resetError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate reset link' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const resetUrl = resetData.properties.action_link
 
     // Initialize Resend
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
