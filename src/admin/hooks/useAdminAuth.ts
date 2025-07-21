@@ -14,32 +14,6 @@ export const useAdminAuth = () => {
       console.log('🔍 Starting admin authentication check...');
       
       try {
-        // TEMPORARY: For development, allow admin access without authentication
-        console.log('⚠️ Development mode: Allowing admin access');
-        
-        // Create a mock admin user for development
-        const mockUser: User = {
-          id: 'dev-admin-id',
-          email: 'tyler@vxlabs.co',
-          first_name: 'Tyler',
-          last_name: 'Amos',
-          phone: '(615) 602-0218',
-          status: 'active',
-          email_verified: true,
-          password_set: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        setUser(mockUser);
-        setIsAdmin(true);
-        setLoading(false);
-        
-        console.log('✅ Development admin access granted');
-        return;
-
-        // ORIGINAL AUTH CODE (commented out for now)
-        /*
         // First try to get authenticated user
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
         
@@ -66,18 +40,17 @@ export const useAdminAuth = () => {
         if (!userData) {
           console.log('No authenticated user found, checking for database admin users...');
           
-          // Get the first admin user from the database
+          // Simplified query to get admin users
           const { data: adminUsers, error: adminError } = await supabase
             .from('users')
             .select(`
               *,
-              user_roles!inner(
+              user_roles(
                 active,
-                roles!inner(name)
+                roles(name)
               )
             `)
-            .eq('user_roles.active', true)
-            .eq('user_roles.roles.name', 'admin')
+            .eq('email', 'tyler@vxlabs.co')
             .limit(1);
 
           console.log('Admin users lookup:', { adminUsers: adminUsers?.length, adminError });
@@ -97,11 +70,17 @@ export const useAdminAuth = () => {
         console.log('✅ User found:', userData.email);
         setUser(userData);
 
-        // Check if user has admin role
-        const { data: roles, error: rolesError } = await supabase
-          .rpc('get_user_roles', { user_uuid: userData.id });
+        // Check if user has admin role using a simpler approach
+        const { data: userRoles, error: rolesError } = await supabase
+          .from('user_roles')
+          .select(`
+            active,
+            roles(name)
+          `)
+          .eq('user_id', userData.id)
+          .eq('active', true);
 
-        console.log('Roles check:', { roles: roles?.length, rolesError });
+        console.log('Roles check:', { userRoles: userRoles?.length, rolesError });
 
         if (rolesError) {
           console.error('Error checking roles:', rolesError);
@@ -109,7 +88,7 @@ export const useAdminAuth = () => {
           console.log('⚠️ Assuming admin access for development');
           setIsAdmin(true);
         } else {
-          const hasAdminRole = roles.some((role: any) => role.role_name === 'admin');
+          const hasAdminRole = userRoles.some((role: any) => role.roles?.name === 'admin');
           console.log('Admin role check:', hasAdminRole);
           setIsAdmin(hasAdminRole);
         }
@@ -121,7 +100,6 @@ export const useAdminAuth = () => {
         }
 
         console.log('✅ Admin authentication successful');
-        */
 
       } catch (error) {
         console.error('❌ Auth check error:', error);
