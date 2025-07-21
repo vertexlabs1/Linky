@@ -9,7 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import SetupPassword from "./pages/SetupPassword";
 import FoundingMemberSuccess from "./pages/FoundingMemberSuccess";
 import NotFound from "./pages/NotFound";
-import { adminRoutes } from "./admin/routes";
+
 
 const queryClient = new QueryClient();
 
@@ -25,7 +25,6 @@ const App = () => (
             <Route path="/dashboard/*" element={<Dashboard />} />
             <Route path="/setup-password" element={<SetupPassword />} />
             <Route path="/founding-member-success" element={<FoundingMemberSuccess />} />
-            {adminRoutes}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
