@@ -54,29 +54,19 @@ const FoundingMemberSection = () => {
 
     setIsLoading(true);
     try {
-      // 1. Create user record in DB (status: pending)
-      const user = await api.createUser({
-        email: form.email,
-        first_name: form.firstName,
-        last_name: form.lastName,
-        phone: form.phone,
-        status: 'pending',
-        founding_member: true,
-      });
-      // 2. Pass user id as metadata to Stripe
+      // Create checkout session directly - user creation handled by Edge Function
       const { url } = await api.createFoundingMemberSchedule({
         customerEmail: form.email,
         successUrl: `https://www.uselinky.app/founding-member-success?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `https://www.uselinky.app`,
         metadata: {
-          user_id: user.id,
           firstName: form.firstName,
           lastName: form.lastName,
           phone: form.phone,
         },
         phone: form.phone,
       });
-      // 3. Redirect to Stripe checkout
+      // Redirect to Stripe checkout
       window.location.href = url;
     } catch (error: any) {
       setFormError(error.message || "There was an error creating your checkout session. Please try again.");
