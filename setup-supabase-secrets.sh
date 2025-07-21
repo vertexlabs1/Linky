@@ -5,8 +5,7 @@
 echo "🔧 Setting up Supabase Edge Functions secrets..."
 
 # Set Stripe secret key (sandbox)
-echo "⚠️  Please add your Stripe secret key manually:"
-echo "supabase secrets set STRIPE_SECRET_KEY=sk_test_your_sandbox_secret_key_here"
+supabase secrets set STRIPE_SECRET_KEY="sk_test_your_sandbox_secret_key_here"
 
 # Set Resend API key (you'll need to add your actual key)
 echo "⚠️  Please add your Resend API key manually:"
