@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -22,6 +23,92 @@ serve(async (req) => {
     const displayName = firstName || name || 'there'
     
     console.log('Sending welcome email to:', email, 'Name:', displayName, 'Source:', source)
+
+    // Initialize Supabase client for password setup link generation
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.log('⚠️ Supabase environment variables not fully configured, skipping password setup link generation')
+    }
+
+    let passwordSetupUrl = null;
+    
+    // Generate password setup link if Supabase is configured
+    if (supabaseUrl && supabaseServiceKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+        // Check if user exists in auth.users
+        const { data: authUsers, error: listError } = await supabase.auth.admin.listUsers()
+        
+        if (listError) {
+          console.error('Failed to list auth users:', listError)
+        } else {
+          const existingUser = authUsers.users.find(user => user.email === email)
+          
+          // If user doesn't exist in auth, create them first
+          if (!existingUser) {
+            console.log('Creating auth user for welcome email:', email)
+            const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+              email: email,
+              email_confirm: true,
+              user_metadata: {
+                first_name: firstName || name || '',
+                last_name: ''
+              }
+            })
+            
+            if (createError) {
+              console.error('Failed to create auth user:', createError)
+            } else {
+              console.log('Auth user created successfully:', newUser.user.id)
+            }
+          }
+
+          // Generate password setup link using Supabase Auth
+          const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
+            type: 'recovery',
+            email: email,
+            options: {
+              redirectTo: 'https://www.uselinky.app/setup-password'
+            }
+          })
+
+          if (resetError) {
+            console.error('Failed to generate password setup link:', resetError)
+          } else {
+            passwordSetupUrl = resetData.properties.action_link
+            
+            console.log('🔗 Original URL generated:', passwordSetupUrl)
+            
+            // Fix the URL if it's pointing to localhost (due to project site URL setting)
+            if (passwordSetupUrl.includes('localhost:3000')) {
+              passwordSetupUrl = passwordSetupUrl.replace('http://localhost:3000', 'https://www.uselinky.app')
+              console.log('✅ Fixed localhost:3000 to production:', passwordSetupUrl)
+            } else if (passwordSetupUrl.includes('localhost')) {
+              passwordSetupUrl = passwordSetupUrl.replace('http://localhost', 'https://www.uselinky.app')
+              console.log('✅ Fixed localhost to production:', passwordSetupUrl)
+            } else if (passwordSetupUrl.includes('127.0.0.1:3000')) {
+              passwordSetupUrl = passwordSetupUrl.replace('http://127.0.0.1:3000', 'https://www.uselinky.app')
+              console.log('✅ Fixed 127.0.0.1:3000 to production:', passwordSetupUrl)
+            } else if (passwordSetupUrl.includes('127.0.0.1')) {
+              passwordSetupUrl = passwordSetupUrl.replace('http://127.0.0.1', 'https://www.uselinky.app')
+              console.log('✅ Fixed 127.0.0.1 to production:', passwordSetupUrl)
+            }
+            
+            // Verify final URL
+            if (passwordSetupUrl.includes('localhost') || passwordSetupUrl.includes('127.0.0.1')) {
+              console.log('⚠️ Warning: URL still contains localhost after replacement:', passwordSetupUrl)
+            } else {
+              console.log('✅ Final URL looks good:', passwordSetupUrl)
+            }
+          }
+        }
+      } catch (supabaseError) {
+        console.error('Error with Supabase operations:', supabaseError)
+      }
+    }
 
     // Check for RESEND_API_KEY
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
@@ -58,6 +145,17 @@ serve(async (req) => {
                 💎 Plus, you'll get exclusive early access and special pricing!
               </p>
             </div>
+            
+            ${passwordSetupUrl ? `
+            <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border-radius: 12px; padding: 24px; color: white; text-align: center; margin-bottom: 24px;">
+              <h3 style="margin: 0 0 12px 0; font-size: 20px;">🚀 Ready to Get Started?</h3>
+              <p style="margin: 0 0 20px 0; opacity: 0.9;">Click the button below to set up your password and access your Linky dashboard!</p>
+              <a href="${passwordSetupUrl}" style="display: inline-block; background: #fbbf24; color: #1f2937; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; margin: 10px 0;">
+                🎯 SET UP MY ACCOUNT
+              </a>
+              <p style="margin: 15px 0 0 0; font-size: 14px; opacity: 0.8;">This link will expire in 1 hour for your security.</p>
+            </div>
+            ` : ''}
             
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; text-align: center; margin-bottom: 24px;">
               <h3 style="margin: 0 0 12px 0; font-size: 20px;">What's Coming Next?</h3>
@@ -104,7 +202,11 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         data: emailResult,
-        message: `Welcome email sent to ${email}`
+        message: `Welcome email sent to ${email}`,
+        debug: {
+          passwordSetupUrlGenerated: !!passwordSetupUrl,
+          finalPasswordSetupUrl: passwordSetupUrl
+        }
       }),
       { 
         headers: { 

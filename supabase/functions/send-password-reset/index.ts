@@ -46,7 +46,31 @@ serve(async (req) => {
       )
     }
 
-    const resetUrl = resetData.properties.action_link
+    let resetUrl = resetData.properties.action_link
+
+    console.log('🔗 Original password reset URL generated:', resetUrl)
+
+    // Fix the URL if it's pointing to localhost (due to project site URL setting)
+    if (resetUrl.includes('localhost:3000')) {
+      resetUrl = resetUrl.replace('http://localhost:3000', 'https://www.uselinky.app')
+      console.log('✅ Fixed localhost:3000 to production:', resetUrl)
+    } else if (resetUrl.includes('localhost')) {
+      resetUrl = resetUrl.replace('http://localhost', 'https://www.uselinky.app')
+      console.log('✅ Fixed localhost to production:', resetUrl)
+    } else if (resetUrl.includes('127.0.0.1:3000')) {
+      resetUrl = resetUrl.replace('http://127.0.0.1:3000', 'https://www.uselinky.app')
+      console.log('✅ Fixed 127.0.0.1:3000 to production:', resetUrl)
+    } else if (resetUrl.includes('127.0.0.1')) {
+      resetUrl = resetUrl.replace('http://127.0.0.1', 'https://www.uselinky.app')
+      console.log('✅ Fixed 127.0.0.1 to production:', resetUrl)
+    }
+
+    // Verify final URL
+    if (resetUrl.includes('localhost') || resetUrl.includes('127.0.0.1')) {
+      console.log('⚠️ Warning: Password reset URL still contains localhost after replacement:', resetUrl)
+    } else {
+      console.log('✅ Final password reset URL looks good:', resetUrl)
+    }
 
     // Initialize Resend
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
