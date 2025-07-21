@@ -56,34 +56,83 @@ serve(async (req) => {
 
     console.log('Processing event type:', event.type)
 
+    // Store event in stripe_events table
+    try {
+      const { error: eventError } = await supabase
+        .from('stripe_events')
+        .insert({
+          stripe_event_id: event.id,
+          event_type: event.type,
+          event_data: event,
+          processed: false
+        });
+
+      if (eventError) {
+        console.error('❌ Error storing event:', eventError);
+      } else {
+        console.log('✅ Event stored in database');
+      }
+    } catch (dbError) {
+      console.error('❌ Database error storing event:', dbError);
+    }
+
     // Handle different webhook events
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object)
-        break
-        
-      case 'subscription_schedule.released':
-        await handleSubscriptionScheduleReleased(event.data.object)
-        break
-        
-      case 'invoice.payment_succeeded':
-        await handleInvoicePaymentSucceeded(event.data.object)
-        break
-        
-      case 'invoice.payment_failed':
-        await handleInvoicePaymentFailed(event.data.object)
-        break
-        
-      case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object)
-        break
-        
-      case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object)
-        break
-        
-      default:
-        console.log(`Unhandled event type: ${event.type}`)
+    let processingError = null;
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          await handleCheckoutCompleted(event.data.object)
+          break
+          
+        case 'subscription_schedule.released':
+          await handleSubscriptionScheduleReleased(event.data.object)
+          break
+          
+        case 'invoice.payment_succeeded':
+          await handleInvoicePaymentSucceeded(event.data.object)
+          break
+          
+        case 'invoice.payment_failed':
+          await handleInvoicePaymentFailed(event.data.object)
+          break
+          
+        case 'customer.subscription.updated':
+          await handleSubscriptionUpdated(event.data.object)
+          break
+          
+        case 'customer.subscription.deleted':
+          await handleSubscriptionDeleted(event.data.object)
+          break
+          
+        default:
+          console.log(`Unhandled event type: ${event.type}`)
+      }
+
+      // Mark event as processed
+      await supabase
+        .from('stripe_events')
+        .update({ 
+          processed: true, 
+          processed_at: new Date().toISOString() 
+        })
+        .eq('stripe_event_id', event.id);
+
+    } catch (error) {
+      processingError = error;
+      console.error('❌ Error processing event:', error);
+      
+      // Mark event as failed
+      await supabase
+        .from('stripe_events')
+        .update({ 
+          processed: false, 
+          error_message: error.message 
+        })
+        .eq('stripe_event_id', event.id);
+    }
+
+    if (processingError) {
+      throw processingError;
     }
 
     return createResponse({ received: true, processed: event.type })
