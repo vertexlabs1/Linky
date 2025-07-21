@@ -56,6 +56,11 @@ interface User {
   status: string;
   last_sync_at?: string;
   created_at: string;
+  billing_name?: string;
+  billing_email?: string;
+  billing_phone?: string;
+  promo_active?: boolean;
+  promo_type?: string;
 }
 
 interface Transaction {
@@ -97,6 +102,11 @@ export const UsersPage: React.FC = () => {
     is_admin: false,
     founding_member: false
   });
+
+  // Customer service modal states
+  const [showBillingUpdate, setShowBillingUpdate] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [showSubscriptionChange, setShowSubscriptionChange] = useState(false);
 
   // Create user form state
   const [newUser, setNewUser] = useState({
@@ -453,6 +463,30 @@ export const UsersPage: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleSyncWithStripe = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setLoadingActions(true);
+      const { error } = await supabase
+        .from('users')
+        .update({
+          last_sync_at: new Date().toISOString()
+        })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      toast.success('User synced with Stripe successfully');
+      fetchUsers(); // Refresh the users list to show the updated last_sync_at
+    } catch (error) {
+      console.error('Error syncing user with Stripe:', error);
+      toast.error('Failed to sync user with Stripe');
+    } finally {
+      setLoadingActions(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -719,7 +753,7 @@ export const UsersPage: React.FC = () => {
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <User className="w-5 h-5" />
-                        User Information
+                        Account Information
                       </div>
                       {!isEditing && (
                         <Button
@@ -752,7 +786,7 @@ export const UsersPage: React.FC = () => {
                               onChange={(e) => setEditForm({...editForm, last_name: e.target.value})}
                             />
                           </div>
-                          <div className="col-span-2">
+                          <div>
                             <label className="text-sm font-medium">Email</label>
                             <Input
                               value={editForm.email}
@@ -773,7 +807,7 @@ export const UsersPage: React.FC = () => {
                               onChange={(e) => setEditForm({...editForm, company: e.target.value})}
                             />
                           </div>
-                          <div className="col-span-2">
+                          <div>
                             <label className="text-sm font-medium">Job Title</label>
                             <Input
                               value={editForm.job_title}
@@ -835,72 +869,168 @@ export const UsersPage: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <>
-                        <div className="flex items-center space-x-4">
-                          <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                            <span className="text-2xl font-bold text-white">
-                              {selectedUser.first_name ? selectedUser.first_name.charAt(0) : selectedUser.email.charAt(0)}
-                            </span>
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-semibold">
-                              {selectedUser.first_name && selectedUser.last_name 
-                                ? `${selectedUser.first_name} ${selectedUser.last_name}` 
-                                : selectedUser.first_name || selectedUser.last_name || 'N/A'
-                              }
-                            </h3>
-                            <p className="text-gray-600">{selectedUser.email}</p>
-                            <div className="flex gap-2 mt-2">
-                              <Badge variant={selectedUser.is_admin ? "default" : "secondary"}>
-                                {selectedUser.is_admin ? 'Admin' : 'User'}
-                              </Badge>
-                              {selectedUser.founding_member && (
-                                <Badge variant="outline" className="border-yellow-300 text-yellow-700">
-                                  <Crown className="w-3 h-3 mr-1" />
-                                  Founding Member
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Name</label>
+                          <p className="text-sm">{selectedUser.first_name} {selectedUser.last_name}</p>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4 pt-4">
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Phone</label>
-                            <p className="text-sm">{selectedUser.phone || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Company</label>
-                            <p className="text-sm">{selectedUser.company || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Job Title</label>
-                            <p className="text-sm">{selectedUser.job_title || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Status</label>
-                            <div className="flex items-center gap-1">
-                              {getStatusDisplay(selectedUser).icon}
-                              <span className={`text-sm ${getStatusDisplay(selectedUser).color}`}>
-                                {getStatusDisplay(selectedUser).text}
-                              </span>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Joined</label>
-                            <p className="text-sm">
-                              {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}
-                            </p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Last Sync</label>
-                            <p className="text-sm">
-                              {selectedUser.last_sync_at ? new Date(selectedUser.last_sync_at).toLocaleDateString() : 'N/A'}
-                            </p>
-                          </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Email</label>
+                          <p className="text-sm">{selectedUser.email}</p>
                         </div>
-                      </>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Phone</label>
+                          <p className="text-sm">{selectedUser.phone || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Company</label>
+                          <p className="text-sm">{selectedUser.company || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Job Title</label>
+                          <p className="text-sm">{selectedUser.job_title || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Status</label>
+                          <Badge variant={selectedUser.status === 'active' ? 'default' : 'secondary'}>
+                            {selectedUser.status}
+                          </Badge>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Admin Access</label>
+                          <Badge variant={selectedUser.is_admin ? 'default' : 'secondary'}>
+                            {selectedUser.is_admin ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Founding Member</label>
+                          <Badge variant={selectedUser.founding_member ? 'default' : 'secondary'}>
+                            {selectedUser.founding_member ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                      </div>
                     )}
+                  </CardContent>
+                </Card>
+
+                {/* Billing Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5" />
+                      Billing Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Billing Name</label>
+                        <p className="text-sm">
+                          {selectedUser.billing_name || `${selectedUser.first_name} ${selectedUser.last_name}`}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Billing Email</label>
+                        <p className="text-sm">
+                          {selectedUser.billing_email || selectedUser.email}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Billing Phone</label>
+                        <p className="text-sm">
+                          {selectedUser.billing_phone || selectedUser.phone || 'Not provided'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Sync Status</label>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={selectedUser.last_sync_at ? 'default' : 'destructive'}>
+                            {selectedUser.last_sync_at ? 'Synced' : 'Not Synced'}
+                          </Badge>
+                          {selectedUser.last_sync_at && (
+                            <span className="text-xs text-gray-500">
+                              {new Date(selectedUser.last_sync_at).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Sync with Stripe Button */}
+                    {selectedUser.stripe_customer_id && (
+                      <div className="pt-4 border-t">
+                        <Button
+                          onClick={handleSyncWithStripe}
+                          disabled={loadingActions}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          {loadingActions ? 'Syncing...' : 'Sync with Stripe'}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Stripe Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5" />
+                      Stripe Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Customer ID</label>
+                        <p className="text-sm font-mono text-xs">
+                          {selectedUser.stripe_customer_id || 'Not connected'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Subscription ID</label>
+                        <p className="text-sm font-mono text-xs">
+                          {selectedUser.stripe_subscription_id || 'Not connected'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Current Plan</label>
+                        <p className="text-sm">
+                          {selectedUser.founding_member ? 'Founding Member ($25/3mo)' : 
+                           selectedUser.current_plan_id ? getPlanById(selectedUser.current_plan_id)?.name || 'N/A' : 'Free'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Subscription Status</label>
+                        <Badge variant={
+                          selectedUser.subscription_status === 'active' ? 'default' : 
+                          selectedUser.subscription_status === 'past_due' ? 'destructive' : 'secondary'
+                        }>
+                          {selectedUser.subscription_status || 'Inactive'}
+                        </Badge>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Period End</label>
+                        <p className="text-sm">
+                          {selectedUser.current_period_end ? 
+                           new Date(selectedUser.current_period_end).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Promo Status</label>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={selectedUser.promo_active ? 'default' : 'secondary'}>
+                            {selectedUser.promo_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                          {selectedUser.promo_type && (
+                            <span className="text-xs text-gray-500">
+                              {selectedUser.promo_type}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -955,76 +1085,44 @@ export const UsersPage: React.FC = () => {
                       <Copy className="w-4 h-4 mr-2" />
                       Copy Email
                     </Button>
+
+                    {/* Customer Service Tools */}
+                    {selectedUser.stripe_customer_id && (
+                      <>
+                        <Button 
+                          onClick={() => setShowBillingUpdate(true)}
+                          className="w-full justify-start"
+                          variant="outline"
+                        >
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Update Billing Info
+                        </Button>
+
+                        <Button 
+                          onClick={() => setShowRefundModal(true)}
+                          className="w-full justify-start"
+                          variant="outline"
+                        >
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          Process Refund
+                        </Button>
+
+                        <Button 
+                          onClick={() => setShowSubscriptionChange(true)}
+                          className="w-full justify-start"
+                          variant="outline"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Change Subscription
+                        </Button>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </div>
 
               {/* Right Side - Payment History & Stripe Info */}
               <div className="space-y-6">
-                {/* Stripe Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5" />
-                      Stripe Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Customer ID</label>
-                        <p className="text-sm font-mono text-gray-800">
-                          {selectedUser.stripe_customer_id || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Subscription ID</label>
-                        <p className="text-sm font-mono text-gray-800">
-                          {selectedUser.stripe_subscription_id || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Current Plan</label>
-                        <p className="text-sm">
-                          {selectedUser.founding_member ? 'Founding Member ($25/3mo)' : 
-                           selectedUser.current_plan_id ? getPlanById(selectedUser.current_plan_id)?.name || 'N/A' : 'Free'}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Subscription Status</label>
-                        <Badge 
-                          variant={selectedUser.subscription_status === 'active' ? 'default' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {selectedUser.subscription_status || 'N/A'}
-                        </Badge>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Period End</label>
-                        <p className="text-sm">
-                          {selectedUser.current_period_end 
-                            ? new Date(selectedUser.current_period_end).toLocaleDateString() 
-                            : 'N/A'
-                          }
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Sync Status</label>
-                        <div className="flex items-center gap-1">
-                          {selectedUser.last_sync_at ? (
-                            <CheckCircle className="w-3 h-3 text-green-600" />
-                          ) : (
-                            <XCircle className="w-3 h-3 text-red-600" />
-                          )}
-                          <span className="text-sm">
-                            {selectedUser.last_sync_at ? 'Synced' : 'Not Synced'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Payment History */}
                 <Card>
                   <CardHeader>

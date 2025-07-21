@@ -236,7 +236,7 @@ async function processEventWithRetry(event: Stripe.Event, retryCount = 0) {
   }
 }
 
-// Handle successful checkout completion
+// Enhanced checkout completion handler with billing/account separation
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   console.log('💳 Processing checkout completion:', session.id)
   
@@ -246,7 +246,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 
   try {
-    // Get the subscription to understand the plan
+    // Get the subscription and customer to understand the plan
     const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
     const customer = await stripe.customers.retrieve(session.customer as string)
     
@@ -254,22 +254,57 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const priceId = subscription.items.data[0]?.price.id
     const planName = getPlanNameFromPriceId(priceId)
     
+    // Check if this is a founding member schedule
+    const isFoundingMember = session.metadata?.type === 'founding_member_schedule'
+    
+    // Find user by email (account email) or create new user
+    let user = await findOrCreateUser(customer.email, session.metadata)
+    
+    // Update user with both account and billing information
+    const updateData = {
+      // Account information (from metadata)
+      first_name: session.metadata?.firstName || user.first_name,
+      last_name: session.metadata?.lastName || user.last_name,
+      phone: session.metadata?.phone || user.phone,
+      
+      // Stripe integration
+      stripe_customer_id: session.customer,
+      stripe_subscription_id: session.subscription,
+      stripe_subscription_schedule_id: session.subscription_schedule || null,
+      
+      // Subscription information
+      subscription_plan: planName,
+      subscription_status: subscription.status,
+      subscription_type: isFoundingMember ? 'founding_member_schedule' : 'regular',
+      
+      // Billing information (from Stripe customer)
+      billing_name: customer.name,
+      billing_email: customer.email,
+      billing_phone: customer.phone,
+      billing_address: customer.address ? JSON.stringify(customer.address) : null,
+      
+      // Promo tracking for founding members
+      promo_active: isFoundingMember,
+      promo_type: isFoundingMember ? 'founding_member' : null,
+      promo_expiration_date: isFoundingMember ? 
+        new Date(Date.now() + 3 * 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+      
+      // Subscription periods
+      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+      
+      // Sync tracking
+      last_sync_at: new Date().toISOString(),
+      status: 'active'
+    }
+    
     // Update user in database
-    const { data: user, error: updateError } = await supabase
+    const { data: updatedUser, error: updateError } = await supabase
       .from('users')
-      .update({
-        stripe_customer_id: session.customer,
-        stripe_subscription_id: session.subscription,
-        stripe_subscription_schedule_id: session.subscription_schedule || null,
-        subscription_plan: planName,
-        subscription_status: subscription.status,
-        current_period_start: new Date(subscription.current_period_start * 1000),
-        current_period_end: new Date(subscription.current_period_end * 1000),
-        cancel_at_period_end: subscription.cancel_at_period_end,
-        last_sync_at: new Date(),
-        status: 'active'
-      })
-      .eq('email', (customer as any).email)
+      .update(updateData)
+      .eq('id', user.id)
       .select()
       .single()
 
@@ -278,13 +313,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       throw updateError
     }
 
-    console.log('✅ User updated after checkout:', user?.email)
+    console.log('✅ User updated after checkout:', updatedUser?.email)
+    console.log('📊 Billing name:', customer.name, 'Account name:', updatedUser?.first_name, updatedUser?.last_name)
 
     // Send appropriate welcome email
-    if (planName === 'Founding Member') {
-      await sendFoundingMemberWelcomeEmail(user, session)
+    if (isFoundingMember) {
+      await sendFoundingMemberWelcomeEmail(updatedUser, session)
     } else {
-      await sendRegularWelcomeEmail(user, session)
+      await sendRegularWelcomeEmail(updatedUser, session)
     }
 
   } catch (error) {
@@ -492,16 +528,20 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   }
 }
 
-// Handle customer updates
+// Enhanced customer update handler
 async function handleCustomerUpdated(customer: Stripe.Customer) {
   console.log('👤 Processing customer update:', customer.id)
   
   try {
+    // Update billing information for all users with this customer ID
     const { error: updateError } = await supabase
       .from('users')
       .update({
+        billing_name: customer.name,
         billing_email: customer.email,
-        last_sync_at: new Date()
+        billing_phone: customer.phone,
+        billing_address: customer.address ? JSON.stringify(customer.address) : null,
+        last_sync_at: new Date().toISOString()
       })
       .eq('stripe_customer_id', customer.id)
       
@@ -510,12 +550,49 @@ async function handleCustomerUpdated(customer: Stripe.Customer) {
       throw updateError
     }
     
-    console.log('✅ Customer updated:', customer.email)
+    console.log('✅ Customer billing info updated:', customer.email)
     
   } catch (error) {
     console.error('❌ Error in handleCustomerUpdated:', error)
     throw error
   }
+}
+
+// Helper function to find or create user
+async function findOrCreateUser(email: string, metadata: any) {
+  // First try to find existing user by email
+  let { data: user, error: findError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email)
+    .single()
+    
+  if (user) {
+    console.log('✅ Found existing user:', user.email)
+    return user
+  }
+  
+  // Create new user if not found
+  console.log('🆕 Creating new user for email:', email)
+  const { data: newUser, error: createError } = await supabase
+    .from('users')
+    .insert({
+      email: email,
+      first_name: metadata?.firstName || '',
+      last_name: metadata?.lastName || '',
+      phone: metadata?.phone || null,
+      status: 'active'
+    })
+    .select()
+    .single()
+    
+  if (createError) {
+    console.error('❌ Error creating user:', createError)
+    throw createError
+  }
+  
+  console.log('✅ Created new user:', newUser.email)
+  return newUser
 }
 
 // Helper function to get plan name from price ID
