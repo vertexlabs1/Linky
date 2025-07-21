@@ -74,6 +74,17 @@ interface Transaction {
   receipt_url?: string;
 }
 
+interface ActivityHistory {
+  id: string;
+  action_type: string;
+  description: string;
+  created_at: string;
+  admin_email?: string;
+  admin_name?: string;
+  old_values?: any;
+  new_values?: any;
+}
+
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +115,10 @@ export const UsersPage: React.FC = () => {
     is_admin: false,
     founding_member: false
   });
+
+  // Activity history state
+  const [activityHistory, setActivityHistory] = useState<ActivityHistory[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
 
   // Customer service modal states
   const [showBillingUpdate, setShowBillingUpdate] = useState(false);
@@ -161,6 +176,7 @@ export const UsersPage: React.FC = () => {
         setSelectedUser(user);
         setShowUserProfile(true);
         fetchUserTransactions(user.id);
+        fetchActivityHistory(user.id); // Fetch activity history for the selected user
       }
     }
   }, [selectedUserId, users]);
@@ -278,6 +294,7 @@ export const UsersPage: React.FC = () => {
   const fetchUserTransactions = async (userId: string) => {
     try {
       setLoadingTransactions(true);
+      console.log('🔄 Fetching transactions for user:', userId);
       
       // First try to get from local database
       const { data, error } = await supabase
@@ -286,17 +303,26 @@ export const UsersPage: React.FC = () => {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Database error:', error);
+        throw error;
+      }
+      
+      console.log('📊 Found transactions in database:', data?.length || 0);
       
       // If we have data, use it
       if (data && data.length > 0) {
         setUserTransactions(data);
+        toast.success(`Found ${data.length} transactions`);
         return;
       }
 
       // If no local data and user has Stripe customer, sync from Stripe
       const user = users.find(u => u.id === userId);
+      console.log('👤 User found:', user?.email, 'Stripe customer ID:', user?.stripe_customer_id);
+      
       if (user?.stripe_customer_id) {
+        console.log('🔄 Syncing from Stripe...');
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-payment-history`, {
           method: 'POST',
           headers: {
@@ -309,7 +335,12 @@ export const UsersPage: React.FC = () => {
           })
         });
 
+        console.log('📡 Stripe sync response status:', response.status);
+        
         if (response.ok) {
+          const responseData = await response.json();
+          console.log('✅ Stripe sync successful:', responseData);
+          
           // Fetch again after sync
           const { data: syncedData, error: syncError } = await supabase
             .from('transactions')
@@ -318,17 +349,25 @@ export const UsersPage: React.FC = () => {
             .order('created_at', { ascending: false });
 
           if (!syncError) {
+            console.log('📊 Synced transactions:', syncedData?.length || 0);
             setUserTransactions(syncedData || []);
-            toast.success('Payment history synced from Stripe');
+            toast.success(`Synced ${syncedData?.length || 0} transactions from Stripe`);
+          } else {
+            console.error('❌ Error fetching synced data:', syncError);
+            toast.error('Failed to fetch synced transactions');
           }
         } else {
-          console.warn('Failed to sync payment history from Stripe');
+          const errorText = await response.text();
+          console.error('❌ Stripe sync failed:', response.status, errorText);
+          toast.error('Failed to sync payment history from Stripe');
         }
       } else {
+        console.log('⚠️ No Stripe customer ID found');
         setUserTransactions([]);
+        toast.info('No Stripe customer found for this user');
       }
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('❌ Error fetching transactions:', error);
       toast.error('Failed to fetch payment history');
       setUserTransactions([]);
     } finally {
@@ -572,6 +611,7 @@ export const UsersPage: React.FC = () => {
 
     try {
       setLoadingActions(true);
+      console.log('🔄 Updating billing for user:', selectedUser.email);
 
       // Prepare billing data
       const billingData = {
@@ -589,16 +629,25 @@ export const UsersPage: React.FC = () => {
         updated_at: new Date().toISOString()
       };
 
+      console.log('📊 Billing data to update:', billingData);
+
       // Update in database
       const { error: dbError } = await supabase
         .from('users')
         .update(billingData)
         .eq('id', selectedUser.id);
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('❌ Database update error:', dbError);
+        throw dbError;
+      }
+
+      console.log('✅ Database updated successfully');
 
       // If user has Stripe customer, update in Stripe
       if (selectedUser.stripe_customer_id) {
+        console.log('🔄 Updating Stripe customer:', selectedUser.stripe_customer_id);
+        
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-update-billing`, {
           method: 'POST',
           headers: {
@@ -621,16 +670,45 @@ export const UsersPage: React.FC = () => {
           })
         });
 
-        if (!response.ok) {
-          console.warn('Stripe update failed, but database was updated');
+        console.log('📡 Stripe update response status:', response.status);
+
+        if (response.ok) {
+          const responseData = await response.json();
+          console.log('✅ Stripe update successful:', responseData);
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Stripe update failed:', response.status, errorText);
+          toast.warning('Database updated but Stripe sync failed');
         }
+      } else {
+        console.log('⚠️ No Stripe customer ID, skipping Stripe update');
+      }
+
+      // Log the billing change
+      try {
+        await supabase.rpc('log_billing_change', {
+          p_user_id: selectedUser.id,
+          p_admin_id: selectedUser.id, // For now, using same user as admin
+          p_change_type: 'billing_update',
+          p_old_values: {
+            billing_name: selectedUser.billing_name,
+            billing_email: selectedUser.billing_email,
+            billing_phone: selectedUser.billing_phone
+          },
+          p_new_values: billingData,
+          p_reason: 'Billing information updated via admin panel'
+        });
+        console.log('✅ Billing change logged');
+      } catch (logError) {
+        console.error('❌ Error logging billing change:', logError);
       }
 
       toast.success('Billing information updated successfully');
       setIsEditingBilling(false);
       fetchUsers(); // Refresh to show updated data
+      fetchActivityHistory(selectedUser.id); // Refresh activity history
     } catch (error) {
-      console.error('Error updating billing:', error);
+      console.error('❌ Error updating billing:', error);
       toast.error('Failed to update billing information');
     } finally {
       setLoadingActions(false);
@@ -665,6 +743,96 @@ export const UsersPage: React.FC = () => {
         zip: '',
         country: 'US'
       });
+    }
+  };
+
+  // Fetch activity history for a user
+  const fetchActivityHistory = async (userId: string) => {
+    try {
+      setLoadingActivity(true);
+      console.log('🔄 Fetching activity history for user:', userId);
+      
+      // Get billing changes
+      const { data: billingChanges, error: billingError } = await supabase
+        .from('billing_changes')
+        .select(`
+          id,
+          change_type,
+          reason,
+          created_at,
+          old_values,
+          new_values,
+          admin:admin_id(email, first_name, last_name)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (billingError) {
+        console.error('❌ Error fetching billing changes:', billingError);
+      }
+
+      // Get admin actions
+      const { data: adminActions, error: adminError } = await supabase
+        .from('admin_actions')
+        .select(`
+          id,
+          action_type,
+          details,
+          created_at,
+          admin:admin_id(email, first_name, last_name)
+        `)
+        .eq('target_user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (adminError) {
+        console.error('❌ Error fetching admin actions:', adminError);
+      }
+
+      // Combine and format activity history
+      const activities: ActivityHistory[] = [];
+      
+      if (billingChanges) {
+        billingChanges.forEach((change: any) => {
+          const admin = Array.isArray(change.admin) ? change.admin[0] : change.admin;
+          activities.push({
+            id: change.id,
+            action_type: change.change_type,
+            description: change.reason || `${change.change_type} updated`,
+            created_at: change.created_at,
+            admin_email: admin?.email,
+            admin_name: `${admin?.first_name || ''} ${admin?.last_name || ''}`.trim(),
+            old_values: change.old_values,
+            new_values: change.new_values
+          });
+        });
+      }
+
+      if (adminActions) {
+        adminActions.forEach((action: any) => {
+          const admin = Array.isArray(action.admin) ? action.admin[0] : action.admin;
+          activities.push({
+            id: action.id,
+            action_type: action.action_type,
+            description: action.details?.description || action.action_type,
+            created_at: action.created_at,
+            admin_email: admin?.email,
+            admin_name: `${admin?.first_name || ''} ${admin?.last_name || ''}`.trim(),
+            old_values: action.details?.old_values,
+            new_values: action.details?.new_values
+          });
+        });
+      }
+
+      // Sort by creation date
+      activities.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      console.log('📊 Activity history:', activities.length, 'activities');
+      setActivityHistory(activities);
+    } catch (error) {
+      console.error('❌ Error fetching activity history:', error);
+      toast.error('Failed to fetch activity history');
+    } finally {
+      setLoadingActivity(false);
     }
   };
 
@@ -914,6 +1082,7 @@ export const UsersPage: React.FC = () => {
           setSelectedUserId(null);
           setSelectedUser(null);
           setUserTransactions([]);
+          setActivityHistory([]); // Clear activity history when closing
         }
       }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -1245,19 +1414,27 @@ export const UsersPage: React.FC = () => {
                           </div>
                         </div>
                         
-                        {/* Sync with Stripe Button */}
-                        {selectedUser.stripe_customer_id && (
-                          <div className="pt-4 border-t">
-                            <Button
-                              onClick={handleSyncWithStripe}
-                              disabled={loadingActions}
-                              variant="outline"
-                              className="w-full"
-                            >
-                              {loadingActions ? 'Syncing...' : 'Sync with Stripe'}
-                            </Button>
-                          </div>
-                        )}
+                                            {/* Sync with Stripe Button */}
+                    {selectedUser.stripe_customer_id && (
+                      <div className="pt-4 border-t space-y-2">
+                        <Button
+                          onClick={handleSyncWithStripe}
+                          disabled={loadingActions}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          {loadingActions ? 'Syncing...' : 'Sync with Stripe'}
+                        </Button>
+                        <Button
+                          onClick={() => fetchUserTransactions(selectedUser.id)}
+                          disabled={loadingTransactions}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          {loadingTransactions ? 'Loading...' : 'Refresh Payment History'}
+                        </Button>
+                      </div>
+                    )}
                       </div>
                     )}
                   </CardContent>
@@ -1392,6 +1569,55 @@ export const UsersPage: React.FC = () => {
                         >
                           {loadingTransactions ? 'Loading...' : 'Refresh Payment History'}
                         </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Activity History */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="w-5 h-5" />
+                      Activity History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {loadingActivity ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                      </div>
+                    ) : activityHistory.length > 0 ? (
+                      <div className="space-y-3">
+                        {activityHistory.map((activity) => (
+                          <div key={activity.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">
+                                {activity.admin_name || 'System'}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {activity.description}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(activity.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            {activity.old_values && activity.new_values && (
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span>Changed from:</span>
+                                <Badge variant="outline">{JSON.stringify(activity.old_values)}</Badge>
+                                <span>to:</span>
+                                <Badge variant="outline">{JSON.stringify(activity.new_values)}</Badge>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Activity className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>No activity history available</p>
+                        <p className="text-sm">User activity will appear here</p>
                       </div>
                     )}
                   </CardContent>
