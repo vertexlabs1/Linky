@@ -74,6 +74,15 @@ interface Transaction {
   receipt_url?: string;
 }
 
+interface PaymentMethod {
+  id: string;
+  card_brand: string;
+  card_last4: string;
+  card_exp_month: number;
+  card_exp_year: number;
+  is_default: boolean;
+}
+
 interface ActivityHistory {
   id: string;
   action_type: string;
@@ -102,6 +111,7 @@ export const UsersPage: React.FC = () => {
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [userTransactions, setUserTransactions] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [userPaymentMethods, setUserPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loadingActions, setLoadingActions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -296,24 +306,38 @@ export const UsersPage: React.FC = () => {
       setLoadingTransactions(true);
       console.log('🔄 Fetching transactions for user:', userId);
       
-      // First try to get from local database
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      // Fetch both transactions and payment methods
+      const [transactionsResult, paymentMethodsResult] = await Promise.all([
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('payment_methods')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+      ]);
 
-      if (error) {
-        console.error('❌ Database error:', error);
-        throw error;
+      if (transactionsResult.error) {
+        console.error('❌ Database error:', transactionsResult.error);
+        throw transactionsResult.error;
       }
       
-      console.log('📊 Found transactions in database:', data?.length || 0);
+      console.log('📊 Found transactions in database:', transactionsResult.data?.length || 0);
+      setUserTransactions(transactionsResult.data || []);
+      
+      if (paymentMethodsResult.error) {
+        console.error('❌ Error fetching payment methods:', paymentMethodsResult.error);
+      } else {
+        setUserPaymentMethods(paymentMethodsResult.data || []);
+        console.log('💳 Found payment methods:', paymentMethodsResult.data?.length || 0);
+      }
       
       // If we have data, use it
-      if (data && data.length > 0) {
-        setUserTransactions(data);
-        toast.success(`Found ${data.length} transactions`);
+      if (transactionsResult.data && transactionsResult.data.length > 0) {
+        toast.success(`Found ${transactionsResult.data.length} transactions`);
         return;
       }
 
@@ -1502,15 +1526,38 @@ export const UsersPage: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                {/* Payment History */}
+                {/* Payment History & Card Information */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Receipt className="w-5 h-5" />
-                      Payment History
+                      <CreditCard className="w-5 h-5" />
+                      Payment History & Card Information
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Card Information */}
+                    {userPaymentMethods.length > 0 && (
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <h4 className="font-medium text-sm text-gray-700 mb-2">Payment Method on File</h4>
+                        {userPaymentMethods.map((pm) => (
+                          <div key={pm.id} className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="w-4 h-4 text-gray-600" />
+                              <span className="font-medium capitalize">{pm.card_brand}</span>
+                              <span className="text-gray-600">**** {pm.card_last4}</span>
+                              <span className="text-gray-500 text-sm">
+                                Expires {pm.card_exp_month}/{pm.card_exp_year}
+                              </span>
+                            </div>
+                            {pm.is_default && (
+                              <Badge variant="outline" className="text-xs">Default</Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Payment History */}
                     {loadingTransactions ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
@@ -1560,7 +1607,7 @@ export const UsersPage: React.FC = () => {
                     )}
                     
                     {selectedUser.stripe_customer_id && (
-                      <div className="pt-4 border-t">
+                      <div className="pt-4 border-t space-y-2">
                         <Button
                           onClick={() => fetchUserTransactions(selectedUser.id)}
                           disabled={loadingTransactions}
@@ -1710,54 +1757,7 @@ export const UsersPage: React.FC = () => {
                 </Card>
               </div>
 
-              {/* Right Side - Payment History & Stripe Info */}
-              <div className="space-y-6">
-                {/* Payment History */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5" />
-                      Payment History
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {loadingTransactions ? (
-                      <div className="flex items-center justify-center py-8">
-                        <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-                        Loading transactions...
-                      </div>
-                    ) : userTransactions.length > 0 ? (
-                      <div className="space-y-3">
-                        {userTransactions.map((transaction) => (
-                          <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div>
-                              <p className="font-medium">{transaction.description || 'Payment'}</p>
-                              <p className="text-sm text-gray-600">
-                                {new Date(transaction.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium">{formatPrice(transaction.amount)}</p>
-                              <Badge 
-                                variant={transaction.status === 'succeeded' ? 'default' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {transaction.status}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <DollarSign className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                        <p>No payment history available</p>
-                        <p className="text-sm">Transactions will appear here once payments are processed</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+
             </div>
           )}
         </DialogContent>
