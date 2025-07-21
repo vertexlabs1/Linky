@@ -399,10 +399,15 @@ export const UsersPage: React.FC = () => {
     }
   };
 
-  const sendWelcomeEmail = async (email: string, firstName: string) => {
+  const sendWelcomeEmail = async (email: string, firstName: string, isFoundingMember: boolean = false) => {
     try {
       setLoadingActions(true);
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-welcome-email`, {
+      
+      // Choose the appropriate endpoint based on user type
+      const endpoint = isFoundingMember ? 'send-founding-member-email' : 'send-welcome-email';
+      const emailType = isFoundingMember ? 'Founding Member' : 'Welcome';
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -421,10 +426,10 @@ export const UsersPage: React.FC = () => {
         throw new Error(`Failed to send email: ${response.status} ${errorText}`);
       }
       
-      toast.success(`Welcome email sent to ${email}`);
+      toast.success(`${emailType} email sent to ${email}`);
     } catch (error) {
-      console.error('Error sending welcome email:', error);
-      toast.error(`Failed to send welcome email: ${error.message}`);
+      console.error('Error sending email:', error);
+      toast.error(`Failed to send email: ${error.message}`);
     } finally {
       setLoadingActions(false);
     }
@@ -1672,13 +1677,13 @@ export const UsersPage: React.FC = () => {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <Button 
-                      onClick={() => sendWelcomeEmail(selectedUser.email, selectedUser.first_name || 'there')}
+                      onClick={() => sendWelcomeEmail(selectedUser.email, selectedUser.first_name || 'there', selectedUser.founding_member)}
                       disabled={loadingActions}
                       className="w-full justify-start"
                       variant="outline"
                     >
                       <Send className="w-4 h-4 mr-2" />
-                      {loadingActions ? 'Sending...' : 'Resend Welcome Email'}
+                      {loadingActions ? 'Sending...' : selectedUser.founding_member ? 'Resend Founding Member Email' : 'Resend Welcome Email'}
                     </Button>
                     
                     <Button 
