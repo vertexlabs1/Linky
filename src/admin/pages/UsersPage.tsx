@@ -33,7 +33,8 @@ import {
   Copy,
   Shield,
   Activity,
-  Edit
+  Edit,
+  Receipt
 } from 'lucide-react';
 import { getPlanById, getStatusIcon, getStatusColor, formatPrice } from '../../lib/stripe/stripe-service';
 
@@ -70,6 +71,7 @@ interface Transaction {
   created_at: string;
   description?: string;
   stripe_payment_intent_id?: string;
+  receipt_url?: string;
 }
 
 export const UsersPage: React.FC = () => {
@@ -107,6 +109,20 @@ export const UsersPage: React.FC = () => {
   const [showBillingUpdate, setShowBillingUpdate] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [showSubscriptionChange, setShowSubscriptionChange] = useState(false);
+
+  // Enhanced billing state management
+  const [isEditingBilling, setIsEditingBilling] = useState(false);
+  const [billingSameAsAccount, setBillingSameAsAccount] = useState(false);
+  const [billingForm, setBillingForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: ''
+  });
 
   // Create user form state
   const [newUser, setNewUser] = useState({
@@ -262,7 +278,8 @@ export const UsersPage: React.FC = () => {
   const fetchUserTransactions = async (userId: string) => {
     try {
       setLoadingTransactions(true);
-      // Fetch transactions from your transactions table
+      
+      // First try to get from local database
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -270,10 +287,50 @@ export const UsersPage: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUserTransactions(data || []);
+      
+      // If we have data, use it
+      if (data && data.length > 0) {
+        setUserTransactions(data);
+        return;
+      }
+
+      // If no local data and user has Stripe customer, sync from Stripe
+      const user = users.find(u => u.id === userId);
+      if (user?.stripe_customer_id) {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-payment-history`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({
+            userEmail: user.email
+          })
+        });
+
+        if (response.ok) {
+          // Fetch again after sync
+          const { data: syncedData, error: syncError } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+          if (!syncError) {
+            setUserTransactions(syncedData || []);
+            toast.success('Payment history synced from Stripe');
+          }
+        } else {
+          console.warn('Failed to sync payment history from Stripe');
+        }
+      } else {
+        setUserTransactions([]);
+      }
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      // Don't show error toast for transactions as they might not exist yet
+      toast.error('Failed to fetch payment history');
+      setUserTransactions([]);
     } finally {
       setLoadingTransactions(false);
     }
@@ -484,6 +541,130 @@ export const UsersPage: React.FC = () => {
       toast.error('Failed to sync user with Stripe');
     } finally {
       setLoadingActions(false);
+    }
+  };
+
+  // Enhanced billing management functions
+  const startBillingEdit = () => {
+    if (!selectedUser) return;
+    
+    // Initialize billing form with current values or account values
+    setBillingForm({
+      name: selectedUser.billing_name || `${selectedUser.first_name} ${selectedUser.last_name}`,
+      email: selectedUser.billing_email || selectedUser.email,
+      phone: selectedUser.billing_phone || selectedUser.phone || '',
+      address: '', // Will be parsed from billing_address JSON
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US'
+    });
+
+    // Check if billing is same as account
+    const isSame = !selectedUser.billing_name && !selectedUser.billing_email && !selectedUser.billing_phone;
+    setBillingSameAsAccount(isSame);
+
+    setIsEditingBilling(true);
+  };
+
+  const handleSaveBilling = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setLoadingActions(true);
+
+      // Prepare billing data
+      const billingData = {
+        billing_name: billingSameAsAccount ? null : billingForm.name,
+        billing_email: billingSameAsAccount ? null : billingForm.email,
+        billing_phone: billingSameAsAccount ? null : billingForm.phone,
+        billing_address: billingSameAsAccount ? null : JSON.stringify({
+          line1: billingForm.address,
+          city: billingForm.city,
+          state: billingForm.state,
+          postal_code: billingForm.zip,
+          country: billingForm.country
+        }),
+        last_sync_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Update in database
+      const { error: dbError } = await supabase
+        .from('users')
+        .update(billingData)
+        .eq('id', selectedUser.id);
+
+      if (dbError) throw dbError;
+
+      // If user has Stripe customer, update in Stripe
+      if (selectedUser.stripe_customer_id) {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-update-billing`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({
+            userEmail: selectedUser.email,
+            billingName: billingSameAsAccount ? null : billingForm.name,
+            billingEmail: billingSameAsAccount ? null : billingForm.email,
+            billingPhone: billingSameAsAccount ? null : billingForm.phone,
+            billingAddress: billingSameAsAccount ? null : {
+              line1: billingForm.address,
+              city: billingForm.city,
+              state: billingForm.state,
+              postal_code: billingForm.zip,
+              country: billingForm.country
+            }
+          })
+        });
+
+        if (!response.ok) {
+          console.warn('Stripe update failed, but database was updated');
+        }
+      }
+
+      toast.success('Billing information updated successfully');
+      setIsEditingBilling(false);
+      fetchUsers(); // Refresh to show updated data
+    } catch (error) {
+      console.error('Error updating billing:', error);
+      toast.error('Failed to update billing information');
+    } finally {
+      setLoadingActions(false);
+    }
+  };
+
+  const cancelBillingEdit = () => {
+    setIsEditingBilling(false);
+    setBillingForm({
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: ''
+    });
+  };
+
+  // Handle "same as account" checkbox
+  const handleBillingSameAsAccount = (checked: boolean) => {
+    setBillingSameAsAccount(checked);
+    if (checked && selectedUser) {
+      setBillingForm({
+        name: `${selectedUser.first_name} ${selectedUser.last_name}`,
+        email: selectedUser.email,
+        phone: selectedUser.phone || '',
+        address: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: 'US'
+      });
     }
   };
 
@@ -916,57 +1097,167 @@ export const UsersPage: React.FC = () => {
                 {/* Billing Information */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5" />
-                      Billing Information
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="w-5 h-5" />
+                        Billing Information
+                      </div>
+                      {!isEditingBilling && selectedUser.stripe_customer_id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={startBillingEdit}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit Billing
+                        </Button>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Billing Name</label>
-                        <p className="text-sm">
-                          {selectedUser.billing_name || `${selectedUser.first_name} ${selectedUser.last_name}`}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Billing Email</label>
-                        <p className="text-sm">
-                          {selectedUser.billing_email || selectedUser.email}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Billing Phone</label>
-                        <p className="text-sm">
-                          {selectedUser.billing_phone || selectedUser.phone || 'Not provided'}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Sync Status</label>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={selectedUser.last_sync_at ? 'default' : 'destructive'}>
-                            {selectedUser.last_sync_at ? 'Synced' : 'Not Synced'}
-                          </Badge>
-                          {selectedUser.last_sync_at && (
-                            <span className="text-xs text-gray-500">
-                              {new Date(selectedUser.last_sync_at).toLocaleDateString()}
-                            </span>
-                          )}
+                    {isEditingBilling ? (
+                      <div className="space-y-4">
+                        {/* Same as Account Checkbox */}
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="billing_same_as_account"
+                            checked={billingSameAsAccount}
+                            onChange={(e) => handleBillingSameAsAccount(e.target.checked)}
+                            className="rounded"
+                          />
+                          <label htmlFor="billing_same_as_account" className="text-sm font-medium">
+                            Billing same as account information
+                          </label>
+                        </div>
+
+                        {/* Billing Form */}
+                        {!billingSameAsAccount && (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-sm font-medium">Billing Name</label>
+                                <Input
+                                  value={billingForm.name}
+                                  onChange={(e) => setBillingForm({...billingForm, name: e.target.value})}
+                                  placeholder="Full name"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Billing Email</label>
+                                <Input
+                                  value={billingForm.email}
+                                  onChange={(e) => setBillingForm({...billingForm, email: e.target.value})}
+                                  placeholder="billing@company.com"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-sm font-medium">Billing Phone</label>
+                                <Input
+                                  value={billingForm.phone}
+                                  onChange={(e) => setBillingForm({...billingForm, phone: e.target.value})}
+                                  placeholder="+1 (555) 123-4567"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium">Billing Address</label>
+                              <Input
+                                value={billingForm.address}
+                                onChange={(e) => setBillingForm({...billingForm, address: e.target.value})}
+                                placeholder="123 Main St"
+                                className="mb-2"
+                              />
+                              <div className="grid grid-cols-3 gap-2">
+                                <Input
+                                  value={billingForm.city}
+                                  onChange={(e) => setBillingForm({...billingForm, city: e.target.value})}
+                                  placeholder="City"
+                                />
+                                <Input
+                                  value={billingForm.state}
+                                  onChange={(e) => setBillingForm({...billingForm, state: e.target.value})}
+                                  placeholder="State"
+                                />
+                                <Input
+                                  value={billingForm.zip}
+                                  onChange={(e) => setBillingForm({...billingForm, zip: e.target.value})}
+                                  placeholder="ZIP"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Save/Cancel Buttons */}
+                        <div className="flex gap-2 pt-4 border-t">
+                          <Button
+                            onClick={handleSaveBilling}
+                            disabled={loadingActions}
+                            className="flex-1"
+                          >
+                            {loadingActions ? 'Saving...' : 'Save Billing'}
+                          </Button>
+                          <Button
+                            onClick={cancelBillingEdit}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* Sync with Stripe Button */}
-                    {selectedUser.stripe_customer_id && (
-                      <div className="pt-4 border-t">
-                        <Button
-                          onClick={handleSyncWithStripe}
-                          disabled={loadingActions}
-                          variant="outline"
-                          className="w-full"
-                        >
-                          {loadingActions ? 'Syncing...' : 'Sync with Stripe'}
-                        </Button>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Billing Name</label>
+                            <p className="text-sm">
+                              {selectedUser.billing_name || `${selectedUser.first_name} ${selectedUser.last_name}`}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Billing Email</label>
+                            <p className="text-sm">
+                              {selectedUser.billing_email || selectedUser.email}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Billing Phone</label>
+                            <p className="text-sm">
+                              {selectedUser.billing_phone || selectedUser.phone || 'Not provided'}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Sync Status</label>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={selectedUser.last_sync_at ? 'default' : 'destructive'}>
+                                {selectedUser.last_sync_at ? 'Synced' : 'Not Synced'}
+                              </Badge>
+                              {selectedUser.last_sync_at && (
+                                <span className="text-xs text-gray-500">
+                                  {new Date(selectedUser.last_sync_at).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Sync with Stripe Button */}
+                        {selectedUser.stripe_customer_id && (
+                          <div className="pt-4 border-t">
+                            <Button
+                              onClick={handleSyncWithStripe}
+                              disabled={loadingActions}
+                              variant="outline"
+                              className="w-full"
+                            >
+                              {loadingActions ? 'Syncing...' : 'Sync with Stripe'}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -1031,6 +1322,78 @@ export const UsersPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payment History */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Receipt className="w-5 h-5" />
+                      Payment History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {loadingTransactions ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                      </div>
+                    ) : userTransactions.length > 0 ? (
+                      <div className="space-y-3">
+                        {userTransactions.map((transaction) => (
+                          <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  ${(transaction.amount / 100).toFixed(2)}
+                                </span>
+                                <Badge variant={
+                                  transaction.status === 'succeeded' ? 'default' :
+                                  transaction.status === 'pending' ? 'secondary' :
+                                  transaction.status === 'failed' ? 'destructive' : 'outline'
+                                }>
+                                  {transaction.status}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                {transaction.description || 'Payment'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(transaction.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            {transaction.receipt_url && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(transaction.receipt_url, '_blank')}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Receipt className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>No payment history available</p>
+                        <p className="text-sm">Payment history will appear here once transactions are processed</p>
+                      </div>
+                    )}
+                    
+                    {selectedUser.stripe_customer_id && (
+                      <div className="pt-4 border-t">
+                        <Button
+                          onClick={() => fetchUserTransactions(selectedUser.id)}
+                          disabled={loadingTransactions}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          {loadingTransactions ? 'Loading...' : 'Refresh Payment History'}
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
