@@ -51,73 +51,67 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         // Get current auth user
         const { data: { user: authUser } } = await supabase.auth.getUser();
         
-        if (authUser) {
-          console.log('Auth user found:', authUser.email);
+        if (!authUser) {
+          console.log('No auth user found');
+          setUser(null);
+          return;
+        }
+        
+        console.log('Auth user found:', authUser.email);
+        
+        // Try method 1: Fetch user details by email first (more reliable)
+        let { data: userData, error } = await supabase
+          .from('users')
+          .select('first_name, last_name, email, auth_user_id, id')
+          .eq('email', authUser.email)
+          .single();
+
+        if (error || !userData) {
+          console.log('Method 1 failed, trying method 2: fetch by auth_user_id');
           
-          // Try method 1: Fetch user details by email first (more reliable)
-          let { data: userData, error } = await supabase
+          // Try method 2: Fetch user details using auth_user_id
+          const { data: authUserData, error: authError } = await supabase
             .from('users')
-            .select('first_name, last_name, email, auth_user_id, id')
-            .eq('email', authUser.email)
+            .select('first_name, last_name, email')
+            .eq('auth_user_id', authUser.id)
             .single();
 
-          if (error || !userData) {
-            console.log('Method 1 failed, trying method 2: fetch by auth_user_id');
+          if (authError || !authUserData) {
+            console.error('Method 2 failed - Error fetching user data by auth_user_id:', authError);
             
-            // Try method 2: Fetch user details using auth_user_id
-            const { data: authUserData, error: authError } = await supabase
-              .from('users')
-              .select('first_name, last_name, email')
-              .eq('auth_user_id', authUser.id)
-              .single();
-
-            if (authError || !authUserData) {
-              console.error('Method 2 failed - Error fetching user data by auth_user_id:', authError);
-              
-              // Method 3: Use auth user metadata as final fallback
-              console.log('Using auth user metadata as fallback');
-              setUser({
-                first_name: authUser.user_metadata?.first_name || authUser.email?.split('@')[0] || 'User',
-                last_name: authUser.user_metadata?.last_name || '',
-                email: authUser.email || '',
-              });
-            } else {
-              console.log('Method 2 success - Found user by auth_user_id');
-              setUser(authUserData);
-            }
+            // Method 3: Use auth user metadata as final fallback
+            console.log('Using auth user metadata as fallback');
+            setUser({
+              first_name: authUser.user_metadata?.first_name || authUser.email?.split('@')[0] || 'User',
+              last_name: authUser.user_metadata?.last_name || '',
+              email: authUser.email || '',
+            });
           } else {
-            console.log('Method 1 success - Found user by email:', userData);
-            
-            // Check if auth_user_id needs to be linked
-            if (!userData.auth_user_id || userData.auth_user_id !== authUser.id) {
-              console.log('Attempting to link auth_user_id...');
-              
-              // Try to update the auth_user_id (might fail due to permissions)
-              const { error: updateError } = await supabase
-                .from('users')
-                .update({ auth_user_id: authUser.id })
-                .eq('id', userData.id);
-              
-              if (updateError) {
-                console.log('Could not auto-link auth_user_id:', updateError.message);
-                console.log('Admin intervention required to link account properly');
-              } else {
-                console.log('Successfully linked auth_user_id');
-              }
-            }
-            
-            setUser(userData);
+            console.log('Method 2 success - Found user by auth_user_id');
+            setUser(authUserData);
           }
-
-
         } else {
-          console.log('No authenticated user found');
-          // No auth user, show demo data
-          setUser({
-            first_name: 'Demo',
-            last_name: 'User',
-            email: 'demo@example.com',
-          });
+          console.log('Method 1 success - Found user by email:', userData);
+          
+          // Check if auth_user_id needs to be linked
+          if (!userData.auth_user_id || userData.auth_user_id !== authUser.id) {
+            console.log('Attempting to link auth_user_id...');
+            
+            // Try to update the auth_user_id (might fail due to permissions)
+            const { error: updateError } = await supabase
+              .from('users')
+              .update({ auth_user_id: authUser.id })
+              .eq('id', userData.id);
+              
+            if (updateError) {
+              console.log('Could not auto-link auth_user_id:', updateError.message);
+              console.log('Admin intervention required to link account properly');
+            } else {
+              console.log('Successfully linked auth_user_id');
+            }
+          }
+          
+          setUser(userData);
         }
       } catch (error) {
         console.error('Error fetching user:', error);
@@ -145,7 +139,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: 'Newsletter', href: '/dashboard/admin/newsletter', icon: Mail },
     { name: 'Promotions', href: '/dashboard/admin/promotions', icon: Gift },
     { name: 'Stripe Events', href: '/dashboard/admin/stripe-events', icon: Activity },
-    { name: 'Roles', href: '/dashboard/admin/roles', icon: Shield },
+                    { name: 'Permissions', href: '/dashboard/admin/permissions', icon: Shield },
   ];
 
   const isActive = (href: string) => {

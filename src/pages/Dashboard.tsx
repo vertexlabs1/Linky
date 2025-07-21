@@ -7,7 +7,7 @@ import AdminSubscriptions from '@/components/pages/AdminSubscriptions';
 import AdminNewsletter from '@/components/pages/AdminNewsletter';
 import AdminPromotions from '@/components/pages/AdminPromotions';
 import AdminStripeEvents from '@/components/pages/AdminStripeEvents';
-import AdminRoles from '@/components/pages/AdminRoles';
+import AdminPermissions from '@/components/pages/AdminRoles';
 
 const Dashboard = () => {
   return (
@@ -22,7 +22,7 @@ const Dashboard = () => {
         <Route path="admin/newsletter" element={<AdminNewsletter />} />
         <Route path="admin/promotions" element={<AdminPromotions />} />
         <Route path="admin/stripe-events" element={<AdminStripeEvents />} />
-        <Route path="admin/roles" element={<AdminRoles />} />
+        <Route path="admin/permissions" element={<AdminPermissions />} />
       </Routes>
     </DashboardLayout>
   );

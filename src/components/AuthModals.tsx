@@ -12,6 +12,7 @@ import { api } from '@/lib/api/api';
 import { PRICE_IDS } from '@/lib/stripe/stripe-service';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { sendPasswordResetEmail } from '@/lib/api/email';
 
 interface AuthModalsProps {
   isLoginOpen: boolean;
@@ -37,6 +38,10 @@ const AuthModals = ({
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [signUpError, setSignUpError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordError, setForgotPasswordError] = useState('');
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,6 +209,36 @@ const AuthModals = ({
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordError('');
+    setForgotPasswordSuccess(false);
+    setIsLoading(true);
+
+    try {
+      logger.userAction('forgot_password_attempt', undefined, { email: forgotPasswordEmail });
+      
+      // Use Supabase's built-in password reset
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+        redirectTo: `${window.location.origin}/setup-password`
+      });
+      
+      if (error) {
+        logger.error('Forgot password failed', { error: error.message, email: forgotPasswordEmail }, 'AUTH');
+        setForgotPasswordError('Failed to send password reset email. Please try again.');
+      } else {
+        logger.userAction('forgot_password_success', undefined, { email: forgotPasswordEmail });
+        setForgotPasswordSuccess(true);
+        toast.success('Password reset email sent! Check your inbox.');
+      }
+    } catch (error: any) {
+      logger.errorWithContext(error, 'AUTH', { email: forgotPasswordEmail });
+      setForgotPasswordError('Failed to send password reset email. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Clear errors when modals open/close
   const handleLoginClose = () => {
     setLoginError('');
@@ -283,7 +318,12 @@ const AuthModals = ({
                 <input type="checkbox" className="rounded" disabled={isLoading} />
                 <span>Remember me</span>
               </label>
-              <button type="button" className="text-sm text-primary hover:underline" disabled={isLoading}>
+              <button 
+                type="button" 
+                className="text-sm text-primary hover:underline" 
+                disabled={isLoading}
+                onClick={() => setShowForgotPassword(true)}
+              >
                 Forgot password?
               </button>
             </div>
@@ -430,6 +470,76 @@ const AuthModals = ({
               </button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Forgot Password Modal */}
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">Reset Password</DialogTitle>
+            <DialogDescription className="text-center">
+              Enter your email address and we'll send you a link to reset your password
+            </DialogDescription>
+          </DialogHeader>
+
+          {forgotPasswordSuccess ? (
+            <div className="space-y-4">
+              <Alert className="border-green-200 bg-green-50">
+                <AlertCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  Password reset email sent! Please check your inbox and follow the link to reset your password.
+                </AlertDescription>
+              </Alert>
+              <Button 
+                onClick={() => setShowForgotPassword(false)}
+                className="w-full"
+              >
+                Close
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {forgotPasswordError && (
+                <Alert variant="destructive" className="flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  <AlertDescription>{forgotPasswordError}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                  disabled={isLoading}
+                >
+                  Back to login
+                </button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </>

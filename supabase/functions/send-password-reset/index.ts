@@ -1,261 +1,244 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { Resend } from 'npm:resend'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Resend } from 'https://esm.sh/resend@1.0.0'
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
-      },
-    })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { email } = await req.json()
+    const { email, resetUrl, firstName } = await req.json()
 
-    console.log('Sending password reset email to:', email)
+    // Initialize Resend
+    const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
 
-    // Create password reset link
-    const passwordResetUrl = `${Deno.env.get('SITE_URL') || 'https://www.uselinky.app'}/setup-password?email=${encodeURIComponent(email)}&reset=true`
-
-    const { data, error } = await resend.emails.send({
-      from: 'Linky <hello@linky.com>',
-      to: email,
-      subject: '🔐 Reset Your Linky Password',
-      html: `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Reset Your Linky Password</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              margin: 0;
-              padding: 0;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              min-height: 100vh;
-            }
+    // Create branded HTML email
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reset Your Linky Password</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f8fafc;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header { 
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); 
+            padding: 40px 30px; 
+            text-align: center; 
+            color: white;
+          }
+          .logo { 
+            font-size: 32px; 
+            font-weight: bold; 
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+          }
+          .logo-icon {
+            background: #fbbf24;
+            color: #1f2937;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 24px;
+          }
+          .subtitle { 
+            font-size: 18px; 
+            opacity: 0.9; 
+            margin: 0;
+          }
+          .content { 
+            padding: 40px 30px; 
+          }
+          .title { 
+            font-size: 24px; 
+            font-weight: 600; 
+            color: #1f2937; 
+            margin-bottom: 20px;
+            text-align: center;
+          }
+          .description { 
+            font-size: 16px; 
+            color: #6b7280; 
+            margin-bottom: 30px;
+            line-height: 1.7;
+            text-align: center;
+          }
+          .reset-button { 
+            display: inline-block; 
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); 
+            color: white; 
+            padding: 16px 32px; 
+            text-decoration: none; 
+            border-radius: 8px; 
+            font-weight: 600; 
+            font-size: 16px;
+            margin: 20px 0;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .warning { 
+            background: #fef3c7; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 30px 0;
+            border-left: 4px solid #fbbf24;
+          }
+          .warning-text { 
+            font-size: 14px; 
+            color: #92400e; 
+            margin: 0;
+          }
+          .footer { 
+            background: #f8fafc; 
+            padding: 30px; 
+            text-align: center; 
+            color: #6b7280;
+            font-size: 14px;
+          }
+          .social-links { 
+            margin: 20px 0; 
+          }
+          .social-link { 
+            display: inline-block; 
+            margin: 0 10px; 
+            color: #6b7280; 
+            text-decoration: none;
+          }
+          .unsubscribe { 
+            font-size: 12px; 
+            color: #9ca3af; 
+            margin-top: 20px;
+          }
+          @media (max-width: 600px) {
+            .container { margin: 10px; }
+            .header { padding: 30px 20px; }
+            .content { padding: 30px 20px; }
+            .footer { padding: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">
+              <span class="logo-icon">🤖</span>
+              Linky
+            </div>
+            <p class="subtitle">Your AI-Powered LinkedIn Wingman</p>
+          </div>
+          
+          <div class="content">
+            <h1 class="title">Reset Your Password</h1>
             
-            .container { 
-              max-width: 600px; 
-              margin: 0 auto; 
-              background: white; 
-              border-radius: 20px; 
-              overflow: hidden; 
-              box-shadow: 0 25px 50px rgba(0,0,0,0.15);
-              position: relative;
-              z-index: 1;
-            }
+            <p class="description">
+              Hi ${firstName || 'there'}, we received a request to reset your Linky password. Click the button below to create a new password.
+            </p>
             
-            .header { 
-              background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); 
-              padding: 50px 30px; 
-              text-align: center; 
-              color: #1f2937;
-            }
-            
-            .logo { 
-              font-size: 36px; 
-              font-weight: bold; 
-              margin-bottom: 15px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 12px;
-            }
-            
-            .logo-icon {
-              background: #1f2937;
-              color: #fbbf24;
-              padding: 12px 16px;
-              border-radius: 12px;
-              font-size: 28px;
-            }
-            
-            .content { 
-              padding: 50px 30px; 
-            }
-            
-            .title { 
-              font-size: 28px; 
-              font-weight: 700; 
-              color: #1f2937; 
-              margin-bottom: 25px;
-              text-align: center;
-            }
-            
-            .description { 
-              font-size: 18px; 
-              color: #6b7280; 
-              margin-bottom: 35px;
-              line-height: 1.8;
-              text-align: center;
-            }
-            
-            .cta-section {
-              background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-              padding: 40px 30px;
-              border-radius: 16px;
-              text-align: center;
-              margin: 40px 0;
-              color: white;
-            }
-            
-            .cta-button { 
-              display: inline-block; 
-              background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); 
-              color: #1f2937; 
-              padding: 20px 40px; 
-              text-decoration: none; 
-              border-radius: 50px; 
-              font-weight: 700; 
-              font-size: 18px;
-              margin: 20px 0;
-              text-align: center;
-              box-shadow: 0 10px 25px rgba(251, 191, 36, 0.4);
-              transition: all 0.3s ease;
-            }
-            
-            .warning {
-              background: #fef3c7;
-              border: 2px solid #fbbf24;
-              border-radius: 12px;
-              padding: 25px;
-              margin: 40px 0;
-              text-align: center;
-            }
-            
-            .footer { 
-              background: #f8fafc; 
-              padding: 40px 30px; 
-              text-align: center; 
-              color: #6b7280;
-              font-size: 14px;
-            }
-            
-            @media (max-width: 600px) {
-              .container { margin: 10px; }
-              .header { padding: 40px 20px; }
-              .content { padding: 40px 20px; }
-              .footer { padding: 30px 20px; }
-              .title { font-size: 24px; }
-              .description { font-size: 16px; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="logo">
-                <span class="logo-icon">🔗</span>
-                Linky
-              </div>
+            <div style="text-align: center;">
+              <a href="${resetUrl}" class="reset-button">
+                Reset Password
+              </a>
             </div>
             
-            <div class="content">
-              <h1 class="title">🔐 Reset Your Password</h1>
-              
-              <p class="description">
-                We received a request to reset your Linky password. Click the button below to create a new password for your account.
-              </p>
-              
-              <div class="cta-section">
-                <h3 style="margin: 0 0 20px 0; font-size: 24px; color: #fbbf24;">
-                  🎯 RESET YOUR PASSWORD
-                </h3>
-                <p style="margin: 0 0 25px 0; font-size: 16px; opacity: 0.9;">
-                  This link will take you to a secure password reset page:
-                </p>
-                
-                <a href="${passwordResetUrl}" class="cta-button">
-                  🔐 RESET PASSWORD
-                </a>
-                
-                <p style="font-size: 14px; opacity: 0.8; margin-top: 15px;">
-                  This link will expire in 24 hours for security.
-                </p>
-              </div>
-              
-              <div class="warning">
-                <h4 style="margin: 0 0 15px 0; color: #92400e; font-size: 18px;">⚠️ Security Notice</h4>
-                <p style="margin: 0; color: #92400e; font-size: 16px; line-height: 1.6;">
-                  If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.
-                </p>
-              </div>
-              
-              <p class="description">
-                Need help? Contact our support team at <strong>support@linky.com</strong>
+            <div class="warning">
+              <p class="warning-text">
+                <strong>⚠️ Security Notice:</strong><br>
+                This link will expire in 1 hour for your security. If you didn't request this password reset, you can safely ignore this email.
               </p>
             </div>
             
-            <div class="footer">
-              <p style="margin: 25px 0 15px 0;">
-                <strong>The Linky Team</strong><br>
-                Building the future of LinkedIn lead generation
+            <p class="description">
+              If the button doesn't work, copy and paste this link into your browser:<br>
+              <a href="${resetUrl}" style="color: #3b82f6; word-break: break-all;">${resetUrl}</a>
+            </p>
+          </div>
+          
+          <div class="footer">
+            <div class="social-links">
+              <a href="https://twitter.com/linky" class="social-link">Twitter</a>
+              <a href="https://linkedin.com/company/linky" class="social-link">LinkedIn</a>
+              <a href="https://linky.com" class="social-link">Website</a>
+            </div>
+            
+            <p>
+              <strong>The Linky Team</strong><br>
+              Building the future of LinkedIn lead generation
+            </p>
+            
+            <div class="unsubscribe">
+              <p>
+                You received this email because you requested a password reset for your Linky account.<br>
+                <a href="https://linky.com/unsubscribe?email=${encodeURIComponent(email)}" style="color: #9ca3af;">Unsubscribe</a> | 
+                <a href="https://linky.com/privacy" style="color: #9ca3af;">Privacy Policy</a>
               </p>
-              
-              <div style="font-size: 12px; color: #9ca3af; margin-top: 25px;">
-                <p>
-                  You received this email because a password reset was requested for your Linky account.<br>
-                  <a href="https://linky.com/privacy" style="color: #9ca3af;">Privacy Policy</a>
-                </p>
-              </div>
             </div>
           </div>
-        </body>
-        </html>
-      `,
-      replyTo: 'support@linky.com',
+        </div>
+      </body>
+      </html>
+    `
+
+    // Send the email using Resend
+    const { data, error } = await resend.emails.send({
+      from: 'Linky <no-reply@uselinky.app>',
+      to: email,
+      subject: 'Reset Your Linky Password',
+      html: html,
+      replyTo: 'support@uselinky.app',
     })
 
     if (error) {
-      console.error('Resend error:', error)
+      console.error('Email sending failed:', error)
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: 'Failed to send email' }),
         { 
           status: 500, 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          } 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    console.log('Password reset email sent successfully:', data)
-
     return new Response(
       JSON.stringify({ success: true, data }),
       { 
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        } 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
+
   } catch (error) {
-    console.error('Error sending password reset email:', error)
+    console.error('Function error:', error)
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        details: error.toString()
-      }),
+      JSON.stringify({ error: 'Internal server error' }),
       { 
         status: 500, 
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
   }

@@ -10,15 +10,13 @@ import { Resend } from 'npm:resend'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, handleCORS, createResponse, createErrorResponse } from '../utils/cors.ts'
 
-// This function is public and can be called without authentication
-
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2023-10-16',
 })
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
 
-// Initialize Supabase client
+// Initialize Supabase client with service role for full access
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
@@ -28,14 +26,13 @@ serve(async (req) => {
   const corsResponse = handleCORS(req)
   if (corsResponse) return corsResponse
 
+  console.log('🔗 Stripe webhook received:', req.method, req.url)
+
   try {
     const body = await req.text()
-    console.log('Received webhook body:', body.substring(0, 200) + '...')
-    
     const signature = req.headers.get('stripe-signature')
-    console.log('Received signature:', signature)
     
-    // Enforce strict signature verification
+    // Strict signature verification
     if (!signature) {
       throw new Error('Missing Stripe signature header')
     }
@@ -45,273 +42,330 @@ serve(async (req) => {
       throw new Error('STRIPE_WEBHOOK_SECRET environment variable not configured')
     }
     
-    let event;
+    let event: Stripe.Event;
     try {
       event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret)
-      console.log('✅ Signature verification successful')
+      console.log('✅ Signature verification successful for event:', event.id)
     } catch (sigError) {
       console.error('❌ Signature verification failed:', sigError.message)
       throw new Error('Invalid webhook signature')
     }
 
-    console.log('Processing event type:', event.type)
+    // Log webhook delivery for monitoring
+    await logWebhookDelivery(event.id, event.type, 'delivered')
 
-    // Store event in stripe_events table
-    try {
-      const { error: eventError } = await supabase
-        .from('stripe_events')
-        .insert({
-          stripe_event_id: event.id,
-          event_type: event.type,
-          event_data: event,
-          processed: false
-        });
+    // Store event in billing_events table for audit trail
+    await logBillingEvent(event)
 
-      if (eventError) {
-        console.error('❌ Error storing event:', eventError);
-      } else {
-        console.log('✅ Event stored in database');
-      }
-    } catch (dbError) {
-      console.error('❌ Database error storing event:', dbError);
-    }
+    // Process event with retry mechanism
+    await processEventWithRetry(event)
 
-    // Handle different webhook events
-    let processingError = null;
-    try {
-      switch (event.type) {
-        case 'checkout.session.completed':
-          await handleCheckoutCompleted(event.data.object)
-          break
-          
-        case 'subscription_schedule.released':
-          await handleSubscriptionScheduleReleased(event.data.object)
-          break
-          
-        case 'invoice.payment_succeeded':
-          await handleInvoicePaymentSucceeded(event.data.object)
-          break
-          
-        case 'invoice.payment_failed':
-          await handleInvoicePaymentFailed(event.data.object)
-          break
-          
-        case 'customer.subscription.updated':
-          await handleSubscriptionUpdated(event.data.object)
-          break
-          
-        case 'customer.subscription.deleted':
-          await handleSubscriptionDeleted(event.data.object)
-          break
-          
-        default:
-          console.log(`Unhandled event type: ${event.type}`)
-      }
+    return createResponse({ 
+      received: true, 
+      event_id: event.id,
+      event_type: event.type,
+      processed: true 
+    })
 
-      // Mark event as processed
-      await supabase
-        .from('stripe_events')
-        .update({ 
-          processed: true, 
-          processed_at: new Date().toISOString() 
-        })
-        .eq('stripe_event_id', event.id);
-
-    } catch (error) {
-      processingError = error;
-      console.error('❌ Error processing event:', error);
-      
-      // Mark event as failed
-      await supabase
-        .from('stripe_events')
-        .update({ 
-          processed: false, 
-          error_message: error.message 
-        })
-        .eq('stripe_event_id', event.id);
-    }
-
-    if (processingError) {
-      throw processingError;
-    }
-
-    return createResponse({ received: true, processed: event.type })
   } catch (error) {
-    console.error('❌ Webhook error:', error)
+    console.error('❌ Webhook processing error:', error)
+    
+    // Log the failure
+    if (error.event_id) {
+      await logWebhookDelivery(error.event_id, error.event_type || 'unknown', 'failed', error.message)
+    }
+    
+    // Alert admins for critical failures
+    await alertAdmins(`Webhook processing failed: ${error.message}`)
+    
     return createErrorResponse(error.message, 400)
   }
-}) 
+})
 
-// Handle initial founding member signup
-async function handleCheckoutCompleted(session: any) {
-  console.log('Processing checkout session:', session.id)
-  console.log('Customer email:', session.customer_details?.email)
-  console.log('Metadata:', session.metadata)
-  
-  if (session.metadata?.firstName && session.metadata?.lastName) {
-    try {
-      console.log('💾 Attempting to update user in database...')
-      
-      // Determine subscription plan based on the session
-      let subscriptionPlan = 'Prospector' // Default
-      let subscriptionType = 'regular'
-      let foundingMember = false
-      let promoActive = false
-      let promoType = null
-      let promoExpirationDate = null
-      
-      if (session.metadata?.type === 'founding_member_schedule') {
-        subscriptionPlan = 'Prospector' // Founding members start on Prospector
-        subscriptionType = 'founding_member_schedule'
-        foundingMember = true
-        promoActive = true
-        promoType = 'founding_member'
-        // Set expiration to 3 months from now
-        promoExpirationDate = new Date(Date.now() + 3 * 30 * 24 * 60 * 60 * 1000).toISOString()
-      }
-      
-      // Check if we have a user_id in metadata (new flow)
-      if (session.metadata?.user_id) {
-        console.log('🔄 Using user_id from metadata to update existing user:', session.metadata.user_id)
-        
-        // Update existing user record with proper promo tracking
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .update({
-            stripe_customer_id: session.customer,
-            stripe_subscription_id: session.subscription,
-            stripe_session_id: session.id,
-            stripe_subscription_schedule_id: session.metadata?.subscription_schedule_id || null,
-            status: 'active',
-            subscription_status: 'active',
-            subscription_plan: subscriptionPlan,
-            subscription_type: subscriptionType,
-            founding_member: foundingMember,
-            promo_active: promoActive,
-            promo_type: promoType,
-            promo_expiration_date: promoExpirationDate,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', session.metadata.user_id)
-          .select()
-          .single()
+// Log webhook delivery for monitoring
+async function logWebhookDelivery(
+  stripeEventId: string, 
+  eventType: string, 
+  status: string, 
+  errorMessage?: string
+) {
+  try {
+    await supabase
+      .from('webhook_deliveries')
+      .insert({
+        stripe_event_id: stripeEventId,
+        event_type: eventType,
+        delivery_status: status,
+        delivered_at: status === 'delivered' ? new Date().toISOString() : null,
+        error_message: errorMessage
+      })
+  } catch (error) {
+    console.error('Failed to log webhook delivery:', error)
+  }
+}
 
-        if (userError) {
-          console.error('❌ Error updating user data:', userError)
-        } else {
-          console.log('✅ Successfully updated user data:', userData)
-        }
-      } else {
-        // Fallback to old flow (create new user)
-        console.log('⚠️ No user_id in metadata, falling back to create new user')
-        
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .insert({
-            email: session.customer_details.email,
-            first_name: session.metadata.firstName,
-            last_name: session.metadata.lastName,
-            phone: session.metadata.phone || null,
-            stripe_customer_id: session.customer,
-            stripe_subscription_id: session.subscription,
-            stripe_session_id: session.id,
-            stripe_subscription_schedule_id: session.metadata?.subscription_schedule_id || null,
-            status: 'active',
-            subscription_status: 'active',
-            subscription_plan: subscriptionPlan,
-            subscription_type: subscriptionType,
-            founding_member: foundingMember,
-            promo_active: promoActive,
-            promo_type: promoType,
-            promo_expiration_date: promoExpirationDate
-          })
-          .select()
-          .single()
+// Log billing events for audit trail
+async function logBillingEvent(event: Stripe.Event) {
+  try {
+    const { error } = await supabase
+      .from('billing_events')
+      .insert({
+        stripe_event_id: event.id,
+        event_type: event.type,
+        event_data: event,
+        processed: false,
+        created_at: new Date().toISOString()
+      })
 
-        if (userError) {
-          console.error('❌ Error saving user data:', userError)
-        } else {
-          console.log('✅ Successfully saved user data:', userData)
-        }
-      }
-    } catch (dbError) {
-      console.error('❌ Database error:', dbError)
+    if (error && !error.message.includes('duplicate')) {
+      console.error('❌ Error logging billing event:', error)
+    } else {
+      console.log('✅ Billing event logged:', event.id)
     }
+  } catch (error) {
+    console.error('❌ Unexpected error logging billing event:', error)
+  }
+}
+
+// Process events with retry mechanism
+async function processEventWithRetry(event: Stripe.Event, retryCount = 0) {
+  const maxRetries = 3
+  const backoffDelay = Math.pow(2, retryCount) * 1000 // Exponential backoff
+  
+  try {
+    console.log(`🔄 Processing event ${event.id} (attempt ${retryCount + 1})`)
+    
+    // Update retry count in database
+    await supabase
+      .from('billing_events')
+      .update({ retry_count: retryCount })
+      .eq('stripe_event_id', event.id)
+
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
+        break
+        
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
+        break
+        
+      case 'customer.subscription.deleted':
+        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
+        break
+        
+      case 'subscription_schedule.released':
+        await handleSubscriptionScheduleReleased(event.data.object as Stripe.SubscriptionSchedule)
+        break
+        
+      case 'invoice.payment_succeeded':
+        await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice)
+        break
+        
+      case 'invoice.payment_failed':
+        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice)
+        break
+        
+      case 'customer.created':
+      case 'customer.updated':
+        await handleCustomerUpdated(event.data.object as Stripe.Customer)
+        break
+        
+      default:
+        console.log(`ℹ️ Unhandled event type: ${event.type}`)
+        // Still mark as processed since we don't need to handle every event type
+        break
+    }
+
+    // Mark event as successfully processed
+    await supabase
+      .from('billing_events')
+      .update({ 
+        processed: true, 
+        processed_at: new Date().toISOString(),
+        error_message: null
+      })
+      .eq('stripe_event_id', event.id)
+
+    console.log(`✅ Successfully processed event ${event.id}`)
+
+  } catch (error) {
+    console.error(`❌ Error processing event ${event.id}:`, error)
+    
+    if (retryCount < maxRetries) {
+      console.log(`🔄 Retrying event ${event.id} in ${backoffDelay}ms (attempt ${retryCount + 1}/${maxRetries})`)
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, backoffDelay))
+      
+      // Update webhook delivery status
+      await supabase
+        .from('webhook_deliveries')
+        .update({
+          delivery_status: 'retrying',
+          retry_count: retryCount + 1,
+          last_retry_at: new Date().toISOString()
+        })
+        .eq('stripe_event_id', event.id)
+      
+      return processEventWithRetry(event, retryCount + 1)
+    } else {
+      // Mark as failed after max retries
+      await supabase
+        .from('billing_events')
+        .update({ 
+          processed: false,
+          error_message: error.message 
+        })
+        .eq('stripe_event_id', event.id)
+      
+      await supabase
+        .from('webhook_deliveries')
+        .update({
+          delivery_status: 'failed',
+          error_message: error.message
+        })
+        .eq('stripe_event_id', event.id)
+      
+      // Alert admins for critical failures
+      await alertAdmins(`Failed to process event ${event.id} after ${maxRetries} retries: ${error.message}`)
+      
+      throw error
+    }
+  }
+}
+
+// Handle successful checkout completion
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  console.log('💳 Processing checkout completion:', session.id)
+  
+  if (!session.customer || !session.subscription) {
+    console.log('⚠️ Checkout session missing customer or subscription')
+    return
+  }
+
+  try {
+    // Get the subscription to understand the plan
+    const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+    const customer = await stripe.customers.retrieve(session.customer as string)
+    
+    // Determine plan from price ID
+    const priceId = subscription.items.data[0]?.price.id
+    const planName = getPlanNameFromPriceId(priceId)
+    
+    // Update user in database
+    const { data: user, error: updateError } = await supabase
+      .from('users')
+      .update({
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription,
+        stripe_subscription_schedule_id: session.subscription_schedule || null,
+        subscription_plan: planName,
+        subscription_status: subscription.status,
+        current_period_start: new Date(subscription.current_period_start * 1000),
+        current_period_end: new Date(subscription.current_period_end * 1000),
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        last_sync_at: new Date(),
+        status: 'active'
+      })
+      .eq('email', (customer as any).email)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error('❌ Error updating user after checkout:', updateError)
+      throw updateError
+    }
+
+    console.log('✅ User updated after checkout:', user?.email)
 
     // Send appropriate welcome email
-    if (session.metadata?.type === 'founding_member_schedule') {
-      await sendFoundingMemberWelcomeEmail(session)
+    if (planName === 'Founding Member') {
+      await sendFoundingMemberWelcomeEmail(user, session)
     } else {
-      await sendRegularWelcomeEmail(session)
+      await sendRegularWelcomeEmail(user, session)
     }
+
+  } catch (error) {
+    console.error('❌ Error in handleCheckoutCompleted:', error)
+    throw error
   }
 }
 
-// Send founding member welcome email
-async function sendFoundingMemberWelcomeEmail(session: any) {
+// Handle subscription updates (plan changes, status changes)
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+  console.log('🔄 Processing subscription update:', subscription.id)
+  
   try {
-    console.log('📧 Sending founding member welcome email to:', session.customer_details?.email)
+    // Get current plan from price ID
+    const priceId = subscription.items.data[0]?.price.id
+    const planName = getPlanNameFromPriceId(priceId)
     
-    const firstName = session.metadata?.firstName || session.customer_details?.email?.split('@')[0] || 'there'
-    const sessionId = session.id
-    
-    // Call the dedicated founding member email function
-    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-founding-member-email`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: session.customer_details.email,
-        firstName: firstName,
-        sessionId: sessionId
+    // Update user in database
+    const { data: user, error: updateError } = await supabase
+      .from('users')
+      .update({
+        subscription_plan: planName,
+        subscription_status: subscription.status,
+        current_period_start: new Date(subscription.current_period_start * 1000),
+        current_period_end: new Date(subscription.current_period_end * 1000),
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+        last_sync_at: new Date()
       })
-    })
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('❌ Failed to send founding member email:', errorText)
-    } else {
-      console.log('✅ Founding member welcome email sent successfully')
+      .eq('stripe_subscription_id', subscription.id)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error('❌ Error updating subscription:', updateError)
+      throw updateError
     }
+
+    console.log('✅ Subscription updated for user:', user?.email)
+
   } catch (error) {
-    console.error('❌ Error sending founding member welcome email:', error)
+    console.error('❌ Error in handleSubscriptionUpdated:', error)
+    throw error
   }
 }
 
-// Send regular welcome email
-async function sendRegularWelcomeEmail(session: any) {
+// Handle subscription cancellation
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+  console.log('❌ Processing subscription cancellation:', subscription.id)
+  
   try {
-    console.log('📧 Sending regular welcome email to:', session.customer_details?.email)
-    
-    const firstName = session.metadata?.firstName || session.customer_details?.email?.split('@')[0] || 'there'
-    
-    const { data, error } = await resend.emails.send({
-      from: 'Linky Team <hello@uselinky.app>',
-      to: session.customer_details.email,
-      subject: '🎉 Welcome to Linky!',
-      html: `
-        <h1>Welcome to Linky, ${firstName}! 🎉</h1>
-        <p>Thank you for joining Linky - the revolutionary AI platform that will transform how you generate leads on LinkedIn.</p>
-        <p>We're excited to have you on board!</p>
-        <p>Best regards,<br>The Linky Team</p>
-      `
-    })
-    
-    if (error) {
-      console.error('❌ Failed to send regular welcome email:', error)
-    } else {
-      console.log('✅ Regular welcome email sent successfully')
+    const { data: user, error: updateError } = await supabase
+      .from('users')
+      .update({
+        subscription_status: 'canceled',
+        cancel_at_period_end: true,
+        last_sync_at: new Date()
+      })
+      .eq('stripe_subscription_id', subscription.id)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error('❌ Error updating canceled subscription:', updateError)
+      throw updateError
     }
+
+    console.log('✅ Subscription canceled for user:', user?.email)
+
+    // Send cancellation email
+    await sendCancellationEmail(user)
+
   } catch (error) {
-    console.error('❌ Error sending regular welcome email:', error)
+    console.error('❌ Error in handleSubscriptionDeleted:', error)
+    throw error
   }
 }
 
-// Handle when founding member 3-month period ends and transitions to regular billing
-async function handleSubscriptionScheduleReleased(schedule: any) {
-  console.log('🔄 Handling subscription schedule release:', schedule.id)
+// Handle founding member transition (3 months → regular billing)
+async function handleSubscriptionScheduleReleased(schedule: Stripe.SubscriptionSchedule) {
+  console.log('👑 Processing founding member transition:', schedule.id)
   
   try {
     // Find user by subscription schedule ID
@@ -326,44 +380,41 @@ async function handleSubscriptionScheduleReleased(schedule: any) {
       return
     }
     
-    console.log('Found user for transition:', user.email)
+    console.log('👑 Found founding member for transition:', user.email)
     
-    // Update user record - they're now on regular Prospector billing
-    // End the promo period and transition to regular billing
+    // Update user record - transition to regular billing
     const { error: updateError } = await supabase
       .from('users')
       .update({ 
         subscription_type: 'regular_monthly',
         subscription_status: 'active',
-        promo_active: false, // End the promo period
-        promo_expiration_date: new Date().toISOString(), // Mark as expired
-        // Keep founding_member = true but update billing type
-        updated_at: new Date().toISOString()
+        promo_active: false,
+        promo_expiration_date: new Date().toISOString(),
+        last_sync_at: new Date()
       })
       .eq('id', user.id)
       
     if (updateError) {
-      console.error('❌ Error updating user for transition:', updateError)
-      return
+      console.error('❌ Error updating founding member transition:', updateError)
+      throw updateError
     }
     
     console.log('✅ Successfully transitioned founding member to regular billing')
-    console.log('📊 User promo period ended, now on regular $75/month billing')
     
     // Send transition notification email
     await sendFoundingMemberTransitionEmail(user)
     
   } catch (error) {
-    console.error('❌ Error handling subscription schedule release:', error)
+    console.error('❌ Error in handleSubscriptionScheduleReleased:', error)
+    throw error
   }
 }
 
-// Handle successful invoice payments (recurring billing)
-async function handleInvoicePaymentSucceeded(invoice: any) {
-  console.log('💰 Handling successful payment for invoice:', invoice.id)
+// Handle successful payments
+async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
+  console.log('💰 Processing successful payment:', invoice.id)
   
   try {
-    // Find user by customer ID
     const { data: user, error: findError } = await supabase
       .from('users')
       .select('*')
@@ -371,7 +422,7 @@ async function handleInvoicePaymentSucceeded(invoice: any) {
       .single()
       
     if (findError || !user) {
-      console.error('❌ Could not find user for customer:', invoice.customer)
+      console.error('❌ Could not find user for payment:', invoice.customer)
       return
     }
     
@@ -380,33 +431,31 @@ async function handleInvoicePaymentSucceeded(invoice: any) {
       .from('users')
       .update({ 
         subscription_status: 'active',
-        updated_at: new Date().toISOString()
+        last_sync_at: new Date()
       })
       .eq('id', user.id)
       
     if (updateError) {
-      console.error('❌ Error updating user payment status:', updateError)
-      return
+      console.error('❌ Error updating payment status:', updateError)
+      throw updateError
     }
     
-    console.log('✅ Successfully updated user payment status')
+    console.log('✅ Payment confirmed for user:', user.email)
     
-    // Send payment confirmation if it's a founding member transition payment
-    if (user.founding_member && invoice.amount_paid >= 7500) { // $75.00 or more
-      await sendPaymentConfirmationEmail(user, invoice)
-    }
+    // Send payment confirmation email
+    await sendPaymentConfirmationEmail(user, invoice)
     
   } catch (error) {
-    console.error('❌ Error handling successful payment:', error)
+    console.error('❌ Error in handleInvoicePaymentSucceeded:', error)
+    throw error
   }
 }
 
-// Handle failed invoice payments
-async function handleInvoicePaymentFailed(invoice: any) {
-  console.log('❌ Handling failed payment for invoice:', invoice.id)
+// Handle failed payments
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+  console.log('💥 Processing failed payment:', invoice.id)
   
   try {
-    // Find user by customer ID
     const { data: user, error: findError } = await supabase
       .from('users')
       .select('*')
@@ -414,7 +463,7 @@ async function handleInvoicePaymentFailed(invoice: any) {
       .single()
       
     if (findError || !user) {
-      console.error('❌ Could not find user for customer:', invoice.customer)
+      console.error('❌ Could not find user for failed payment:', invoice.customer)
       return
     }
     
@@ -423,134 +472,251 @@ async function handleInvoicePaymentFailed(invoice: any) {
       .from('users')
       .update({ 
         subscription_status: 'past_due',
-        updated_at: new Date().toISOString()
+        last_sync_at: new Date()
       })
       .eq('id', user.id)
       
     if (updateError) {
-      console.error('❌ Error updating user payment status:', updateError)
-      return
+      console.error('❌ Error updating failed payment status:', updateError)
+      throw updateError
     }
     
-    console.log('✅ Successfully updated user to past_due status')
+    console.log('⚠️ Payment failed for user:', user.email)
     
     // Send payment failed notification
     await sendPaymentFailedEmail(user, invoice)
     
   } catch (error) {
-    console.error('❌ Error handling failed payment:', error)
+    console.error('❌ Error in handleInvoicePaymentFailed:', error)
+    throw error
   }
 }
 
-// Handle subscription updates (plan changes, etc.)
-async function handleSubscriptionUpdated(subscription: any) {
-  console.log('🔄 Handling subscription update:', subscription.id)
+// Handle customer updates
+async function handleCustomerUpdated(customer: Stripe.Customer) {
+  console.log('👤 Processing customer update:', customer.id)
   
   try {
-    // Find user by subscription ID
-    const { data: user, error: findError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('stripe_subscription_id', subscription.id)
-      .single()
-      
-    if (findError || !user) {
-      console.error('❌ Could not find user for subscription:', subscription.id)
-      return
-    }
-    
-    // Determine new plan based on subscription items
-    let newPlan = 'Prospector' // Default
-    if (subscription.items?.data?.length > 0) {
-      const priceId = subscription.items.data[0].price.id
-      
-      // Map price IDs to plan names using your actual price IDs
-      switch (priceId) {
-        case 'price_1RmIR6K06fIw6v4hEoGab0Ts':
-          newPlan = 'Prospector'
-          break
-        case 'price_1RmIR6K06fIw6v4hT68Bm0ST':
-          newPlan = 'Networker'
-          break
-        case 'price_1RmIR7K06fIw6v4h5ovxqVqW':
-          newPlan = 'Rainmaker'
-          break
-        case 'price_1RmIXSK06fIw6v4hj3rTDsRj':
-          // This is the founding member schedule price - keep existing plan but update status
-          newPlan = user.subscription_plan || 'Prospector'
-          break
-        default:
-          console.log(`Unknown price ID: ${priceId}, defaulting to Prospector`)
-          newPlan = 'Prospector'
-      }
-    }
-    
-    // Update user record
     const { error: updateError } = await supabase
       .from('users')
-      .update({ 
-        subscription_plan: newPlan,
-        subscription_status: subscription.status,
-        updated_at: new Date().toISOString()
+      .update({
+        billing_email: customer.email,
+        last_sync_at: new Date()
       })
-      .eq('id', user.id)
+      .eq('stripe_customer_id', customer.id)
       
     if (updateError) {
-      console.error('❌ Error updating user subscription:', updateError)
-      return
+      console.error('❌ Error updating customer:', updateError)
+      throw updateError
     }
     
-    console.log('✅ Successfully updated user subscription plan to:', newPlan)
-    
-    // Send plan change notification if it's a significant upgrade/downgrade
-    if (user.subscription_plan !== newPlan) {
-      await sendPlanChangeEmail(user, user.subscription_plan, newPlan)
-    }
+    console.log('✅ Customer updated:', customer.email)
     
   } catch (error) {
-    console.error('❌ Error handling subscription update:', error)
+    console.error('❌ Error in handleCustomerUpdated:', error)
+    throw error
   }
 }
 
-// Add plan change email function
-async function sendPlanChangeEmail(user: any, oldPlan: string, newPlan: string) {
+// Helper function to get plan name from price ID
+function getPlanNameFromPriceId(priceId: string): string {
+  const priceIdMap: Record<string, string> = {
+    'price_1RmIR6K06fIw6v4hEoGab0Ts': 'Prospector',
+    'price_1RmIR6K06fIw6v4hT68Bm0ST': 'Networker', 
+    'price_1RmIR7K06fIw6v4h5ovxqVqW': 'Rainmaker',
+    'price_1RmIXSK06fIw6v4hj3rTDsRj': 'Founding Member'
+  }
+  
+  return priceIdMap[priceId] || 'Prospector'
+}
+
+// Email functions
+async function sendFoundingMemberWelcomeEmail(user: any, session: Stripe.Checkout.Session) {
   try {
-    const planEmojis: Record<string, string> = {
-      'Prospector': '🥉',
-      'Networker': '🥈', 
-      'Rainmaker': '🥇'
+    // Call the dedicated founding member email function
+    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-founding-member-email`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: user.email,
+        firstName: user.first_name,
+        sessionId: session.id
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Email service responded with ${response.status}`)
     }
     
-    const { data, error } = await resend.emails.send({
-      from: 'Linky Team <hello@uselinky.app>',
+    console.log('✅ Founding member welcome email sent to:', user.email)
+  } catch (error) {
+    console.error('❌ Error sending founding member welcome email:', error)
+  }
+}
+
+async function sendRegularWelcomeEmail(user: any, session: Stripe.Checkout.Session) {
+  try {
+    const { error } = await resend.emails.send({
+      from: 'Linky <no-reply@uselinky.app>',
       to: user.email,
-      subject: `🎉 Plan Updated: Welcome to ${newPlan}!`,
+      subject: '🎉 Welcome to Linky!',
       html: `
-        <h1>Plan Change Confirmed! ${planEmojis[newPlan] || '🎯'}</h1>
-        <p>Hi ${user.first_name},</p>
-        <p>Your Linky subscription has been successfully updated:</p>
-        
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <p><strong>Previous Plan:</strong> ${planEmojis[oldPlan] || '📦'} ${oldPlan}</p>
-          <p><strong>New Plan:</strong> ${planEmojis[newPlan] || '🎯'} ${newPlan}</p>
-        </div>
-        
-        <p>You now have access to all the features included in your ${newPlan} plan!</p>
-        
-        ${user.founding_member ? '<p>💎 <em>As a founding member, you continue to enjoy special perks and lifetime recognition!</em></p>' : ''}
-        
-        <p>Questions about your new plan? Just reply to this email!</p>
-        
-        <p>Best,<br>The Linky Team</p>
+        <h1>Welcome to Linky, ${user.first_name || 'there'}! 🎉</h1>
+        <p>Thank you for joining Linky - the revolutionary AI platform that will transform how you generate leads on LinkedIn.</p>
+        <p>Your subscription is now active and you have full access to all features.</p>
+        <p>Get started by logging into your dashboard:</p>
+        <a href="${Deno.env.get('SITE_URL') || 'https://www.uselinky.app'}/dashboard" 
+           style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+          Access Your Dashboard
+        </a>
+        <p>Best regards,<br>The Linky Team</p>
       `
     })
-
+    
     if (error) {
-      console.error('❌ Failed to send plan change email:', error)
-    } else {
-      console.log('✅ Plan change email sent successfully')
+      throw error
     }
-  } catch (emailError) {
-    console.error('❌ Plan change email error:', emailError)
+    
+    console.log('✅ Regular welcome email sent to:', user.email)
+  } catch (error) {
+    console.error('❌ Error sending regular welcome email:', error)
+  }
+}
+
+async function sendFoundingMemberTransitionEmail(user: any) {
+  try {
+    const { error } = await resend.emails.send({
+      from: 'Linky <no-reply@uselinky.app>',
+      to: user.email,
+      subject: '👑 Your Founding Member Period Has Ended',
+      html: `
+        <h1>Thank you for being a founding member, ${user.first_name}! 👑</h1>
+        <p>Your 3-month founding member period has ended, and you've now been transitioned to our regular Prospector plan at $75/month.</p>
+        <p>As a founding member, you'll always have special recognition and early access to new features.</p>
+        <p>Questions about your billing? Contact us anytime.</p>
+        <p>Best regards,<br>The Linky Team</p>
+      `
+    })
+    
+    console.log('✅ Founding member transition email sent to:', user.email)
+  } catch (error) {
+    console.error('❌ Error sending transition email:', error)
+  }
+}
+
+async function sendPaymentConfirmationEmail(user: any, invoice: Stripe.Invoice) {
+  try {
+    const { error } = await resend.emails.send({
+      from: 'Linky <no-reply@uselinky.app>',
+      to: user.email,
+      subject: '💳 Payment Confirmation',
+      html: `
+        <h1>Payment Confirmed! 💳</h1>
+        <p>Hi ${user.first_name},</p>
+        <p>We've successfully processed your payment of $${(invoice.amount_paid / 100).toFixed(2)}.</p>
+        <p>Your subscription is active and all features are available.</p>
+        <p>Receipt: ${invoice.hosted_invoice_url}</p>
+        <p>Best regards,<br>The Linky Team</p>
+      `
+    })
+    
+    console.log('✅ Payment confirmation email sent to:', user.email)
+  } catch (error) {
+    console.error('❌ Error sending payment confirmation email:', error)
+  }
+}
+
+async function sendPaymentFailedEmail(user: any, invoice: Stripe.Invoice) {
+  try {
+    const { error } = await resend.emails.send({
+      from: 'Linky <no-reply@uselinky.app>',
+      to: user.email,
+      subject: '⚠️ Payment Failed - Action Required',
+      html: `
+        <h1>Payment Failed ⚠️</h1>
+        <p>Hi ${user.first_name},</p>
+        <p>We were unable to process your payment of $${(invoice.amount_due / 100).toFixed(2)}.</p>
+        <p>Please update your payment method to continue using Linky:</p>
+        <a href="${Deno.env.get('SITE_URL') || 'https://www.uselinky.app'}/dashboard/billing" 
+           style="background: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+          Update Payment Method
+        </a>
+        <p>Best regards,<br>The Linky Team</p>
+      `
+    })
+    
+    console.log('✅ Payment failed email sent to:', user.email)
+  } catch (error) {
+    console.error('❌ Error sending payment failed email:', error)
+  }
+}
+
+async function sendCancellationEmail(user: any) {
+  try {
+    const { error } = await resend.emails.send({
+      from: 'Linky <no-reply@uselinky.app>',
+      to: user.email,
+      subject: '😢 We\'re Sorry to See You Go',
+      html: `
+        <h1>Subscription Canceled 😢</h1>
+        <p>Hi ${user.first_name},</p>
+        <p>Your Linky subscription has been canceled. You'll continue to have access until the end of your current billing period.</p>
+        <p>We'd love to have you back! If you change your mind, you can reactivate anytime.</p>
+        <p>Best regards,<br>The Linky Team</p>
+      `
+    })
+    
+    console.log('✅ Cancellation email sent to:', user.email)
+  } catch (error) {
+    console.error('❌ Error sending cancellation email:', error)
+  }
+}
+
+// Alert admins of critical issues
+async function alertAdmins(message: string) {
+  try {
+    // Log to sync_health table
+    await supabase
+      .from('sync_health')
+      .insert({
+        sync_type: 'webhook',
+        status: 'failure',
+        error_details: { message, timestamp: new Date().toISOString() },
+        started_at: new Date(),
+        completed_at: new Date()
+      })
+
+    // Send email alert to admins
+    const { data: admins } = await supabase
+      .from('users')
+      .select('email, first_name')
+      .eq('is_admin', true)
+
+    if (admins && admins.length > 0) {
+      for (const admin of admins) {
+        await resend.emails.send({
+          from: 'Linky Alerts <alerts@uselinky.app>',
+          to: admin.email,
+          subject: '🚨 Linky System Alert',
+          html: `
+            <h1>System Alert 🚨</h1>
+            <p>Hi ${admin.first_name},</p>
+            <p>A critical issue occurred in the Linky billing system:</p>
+            <div style="background: #fee2e2; border: 1px solid #fecaca; padding: 16px; border-radius: 6px; margin: 16px 0;">
+              <strong>Error:</strong> ${message}
+            </div>
+            <p>Time: ${new Date().toISOString()}</p>
+            <p>Please check the admin dashboard for more details.</p>
+          `
+        })
+      }
+    }
+
+    console.log('🚨 Admin alert sent:', message)
+  } catch (error) {
+    console.error('❌ Failed to send admin alert:', error)
   }
 }

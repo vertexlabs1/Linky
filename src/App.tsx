@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import AuthGuard from "@/components/AuthGuard";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import SetupPassword from "./pages/SetupPassword";
@@ -22,7 +23,11 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/dashboard/*" element={<Dashboard />} />
+            <Route path="/dashboard/*" element={
+              <AuthGuard>
+                <Dashboard />
+              </AuthGuard>
+            } />
             <Route path="/setup-password" element={<SetupPassword />} />
             <Route path="/founding-member-success" element={<FoundingMemberSuccess />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

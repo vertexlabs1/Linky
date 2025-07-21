@@ -34,6 +34,8 @@ interface UserData {
   last_name?: string;
   email?: string;
   phone?: string;
+  company?: string;
+  job_title?: string;
   founding_member?: boolean;
   subscription_plan?: string;
   subscription_status?: string;
@@ -109,6 +111,8 @@ const Settings = () => {
               last_name: authUser.user_metadata?.last_name || 'User',
               email: authUser.email || 'demo@example.com',
               phone: '',
+              company: '',
+              job_title: '',
               founding_member: true,
               subscription_plan: 'founding_member',
               subscription_status: 'active',
@@ -120,8 +124,8 @@ const Settings = () => {
               lastName: fallbackUser.last_name || '',
               email: fallbackUser.email || '',
               phone: fallbackUser.phone || '',
-              company: '',
-              jobTitle: ''
+              company: fallbackUser.company || '',
+              jobTitle: fallbackUser.job_title || ''
             });
           } else {
             console.log('Found user by email:', emailUserData.email);
@@ -131,8 +135,8 @@ const Settings = () => {
               lastName: emailUserData.last_name || '',
               email: emailUserData.email || '',
               phone: emailUserData.phone || '',
-              company: '',
-              jobTitle: ''
+              company: emailUserData.company || '',
+              jobTitle: emailUserData.job_title || ''
             });
           }
         } else {
@@ -142,8 +146,8 @@ const Settings = () => {
             lastName: userData.last_name || '',
             email: userData.email || '',
             phone: userData.phone || '',
-            company: '',
-            jobTitle: ''
+            company: userData.company || '',
+            jobTitle: userData.job_title || ''
           });
         }
       } else {
@@ -153,6 +157,8 @@ const Settings = () => {
           last_name: 'User',
           email: 'demo@example.com',
           phone: '',
+          company: '',
+          job_title: '',
           founding_member: true,
           subscription_plan: 'founding_member',
           subscription_status: 'active',
@@ -164,8 +170,8 @@ const Settings = () => {
           lastName: demoUser.last_name || '',
           email: demoUser.email || '',
           phone: demoUser.phone || '',
-          company: '',
-          jobTitle: ''
+          company: demoUser.company || '',
+          jobTitle: demoUser.job_title || ''
         });
       }
     } catch (error) {
@@ -178,13 +184,15 @@ const Settings = () => {
   const handleSaveProfile = async () => {
     if (!user?.id) {
       // For demo purposes, just update local state
-      setUser(prev => prev ? {
-        ...prev,
-        first_name: userInfo.firstName,
-        last_name: userInfo.lastName,
-        email: userInfo.email,
-        phone: userInfo.phone,
-      } : null);
+              setUser(prev => prev ? {
+          ...prev,
+          first_name: userInfo.firstName,
+          last_name: userInfo.lastName,
+          email: userInfo.email,
+          phone: userInfo.phone,
+          company: userInfo.company,
+          job_title: userInfo.jobTitle,
+        } : null);
       setIsEditing(false);
       alert('Profile updated successfully! (Demo mode)');
       return;
@@ -199,6 +207,8 @@ const Settings = () => {
           last_name: userInfo.lastName,
           email: userInfo.email,
           phone: userInfo.phone,
+          company: userInfo.company,
+          job_title: userInfo.jobTitle,
         })
         .eq('id', user.id);
 
@@ -212,6 +222,8 @@ const Settings = () => {
           last_name: userInfo.lastName,
           email: userInfo.email,
           phone: userInfo.phone,
+          company: userInfo.company,
+          job_title: userInfo.jobTitle,
         } : null);
         setIsEditing(false);
         alert('Profile updated successfully!');
@@ -231,8 +243,8 @@ const Settings = () => {
         lastName: user.last_name || '',
         email: user.email || '',
         phone: user.phone || '',
-        company: '',
-        jobTitle: ''
+        company: user.company || '',
+        jobTitle: user.job_title || ''
       });
     }
     setIsEditing(false);
@@ -279,6 +291,26 @@ const Settings = () => {
   };
 
   const getSubscriptionDetails = () => {
+    // Check if user is admin
+    const isAdmin = user?.email === 'tyler@vxlabs.co';
+    
+    if (isAdmin) {
+      return {
+        plan: 'Administrator',
+        status: 'Active',
+        billingCycle: 'N/A',
+        nextBilling: 'N/A',
+        price: 'N/A',
+        features: [
+          'Full access to all features',
+          'Admin panel access',
+          'User management',
+          'System administration',
+          'Unlimited access'
+        ]
+      };
+    }
+    
     if (user?.founding_member) {
       return {
         plan: 'Founding Member',
@@ -337,11 +369,11 @@ const Settings = () => {
   }
 
   return (
-    <div className="container mx-auto px-6 py-8 max-w-6xl">
+    <div className="p-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">Settings</h1>
-        <p className="text-xl text-muted-foreground">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Settings</h1>
+        <p className="text-gray-600">
           Manage your account, subscription, and preferences
         </p>
       </div>
