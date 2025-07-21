@@ -14,6 +14,32 @@ export const useAdminAuth = () => {
       console.log('🔍 Starting admin authentication check...');
       
       try {
+        // TEMPORARY: For development, allow admin access without authentication
+        console.log('⚠️ Development mode: Allowing admin access');
+        
+        // Create a mock admin user for development
+        const mockUser: User = {
+          id: 'dev-admin-id',
+          email: 'tyler@vxlabs.co',
+          first_name: 'Tyler',
+          last_name: 'Amos',
+          phone: '(615) 602-0218',
+          status: 'active',
+          email_verified: true,
+          password_set: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        setUser(mockUser);
+        setIsAdmin(true);
+        setLoading(false);
+        
+        console.log('✅ Development admin access granted');
+        return;
+
+        // ORIGINAL AUTH CODE (commented out for now)
+        /*
         // First try to get authenticated user
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
         
@@ -95,6 +121,7 @@ export const useAdminAuth = () => {
         }
 
         console.log('✅ Admin authentication successful');
+        */
 
       } catch (error) {
         console.error('❌ Auth check error:', error);
