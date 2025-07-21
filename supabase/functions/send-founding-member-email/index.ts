@@ -72,6 +72,8 @@ serve(async (req) => {
     }
 
     // Now generate password setup link using Supabase Auth
+    // Note: The redirectTo will be overridden by the project's site URL setting
+    // We need to manually construct the final URL
     const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
       type: 'recovery',
       email: email,
@@ -91,7 +93,13 @@ serve(async (req) => {
       )
     }
 
-    const passwordSetupUrl = resetData.properties.action_link
+    let passwordSetupUrl = resetData.properties.action_link
+    
+    // Fix the URL if it's pointing to localhost (due to project site URL setting)
+    if (passwordSetupUrl.includes('localhost:3000')) {
+      passwordSetupUrl = passwordSetupUrl.replace('http://localhost:3000', 'https://www.uselinky.app')
+      console.log('Fixed redirect URL from localhost to production:', passwordSetupUrl)
+    }
 
     // Use direct fetch to Resend API (same as working welcome email function)
     const resendResponse = await fetch('https://api.resend.com/emails', {
