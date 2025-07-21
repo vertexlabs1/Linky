@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
+import AdminLogin from './AdminLogin';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
-  const { user, isAdmin, loading, signOut } = useAdminAuth();
+  const { user, isAdmin, loading, showLogin, signOut } = useAdminAuth();
   const location = useLocation();
 
   const navigation = [
@@ -72,6 +73,10 @@ const AdminLayout: React.FC = () => {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  if (showLogin) {
+    return <AdminLogin />;
   }
 
   if (!isAdmin) {

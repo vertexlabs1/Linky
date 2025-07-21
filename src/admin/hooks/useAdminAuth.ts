@@ -7,6 +7,7 @@ export const useAdminAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,91 +20,68 @@ export const useAdminAuth = () => {
         
         console.log('Auth check result:', { authUser: !!authUser, authError });
         
-        let userData = null;
-        
-        if (authUser) {
-          // User is authenticated through Supabase Auth
-          const { data: dbUser, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_user_id', authUser.id)
-            .single();
-
-          console.log('Database user lookup:', { dbUser: !!dbUser, userError });
-          
-          if (!userError && dbUser) {
-            userData = dbUser;
-          }
-        }
-        
-        // If no authenticated user or user not found in DB, check for database-only users
-        if (!userData) {
-          console.log('No authenticated user found, checking for database admin users...');
-          
-          // Simplified query to get admin users
-          const { data: adminUsers, error: adminError } = await supabase
-            .from('users')
-            .select(`
-              *,
-              user_roles(
-                active,
-                roles(name)
-              )
-            `)
-            .eq('email', 'tyler@vxlabs.co')
-            .limit(1);
-
-          console.log('Admin users lookup:', { adminUsers: adminUsers?.length, adminError });
-          
-          if (!adminError && adminUsers && adminUsers.length > 0) {
-            userData = adminUsers[0];
-            console.log('Found admin user:', userData.email);
-          }
-        }
-
-        if (!userData) {
-          console.log('❌ No admin user found, redirecting to home');
-          navigate('/');
+        if (!authUser) {
+          console.log('❌ No authenticated user, showing login form');
+          setShowLogin(true);
+          setLoading(false);
           return;
         }
 
-        console.log('✅ User found:', userData.email);
-        setUser(userData);
+        // User is authenticated, check if they exist in our users table
+        const { data: dbUser, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_user_id', authUser.id)
+          .single();
 
-        // Check if user has admin role using a simpler approach
+        console.log('Database user lookup:', { dbUser: !!dbUser, userError });
+        
+        if (userError || !dbUser) {
+          console.log('❌ User not found in database, showing login form');
+          setShowLogin(true);
+          setLoading(false);
+          return;
+        }
+
+        console.log('✅ User found:', dbUser.email);
+        setUser(dbUser);
+
+        // Check if user has admin role
         const { data: userRoles, error: rolesError } = await supabase
           .from('user_roles')
           .select(`
             active,
             roles(name)
           `)
-          .eq('user_id', userData.id)
+          .eq('user_id', dbUser.id)
           .eq('active', true);
 
         console.log('Roles check:', { userRoles: userRoles?.length, rolesError });
 
         if (rolesError) {
           console.error('Error checking roles:', rolesError);
-          // For development, assume admin access if user exists
-          console.log('⚠️ Assuming admin access for development');
-          setIsAdmin(true);
-        } else {
-          const hasAdminRole = userRoles.some((role: any) => role.roles?.name === 'admin');
-          console.log('Admin role check:', hasAdminRole);
-          setIsAdmin(hasAdminRole);
-        }
-
-        if (!isAdmin) {
-          console.log('❌ User does not have admin role, redirecting to home');
-          navigate('/');
+          setShowLogin(true);
+          setLoading(false);
           return;
         }
 
+        const hasAdminRole = userRoles.some((role: any) => role.roles?.name === 'admin');
+        console.log('Admin role check:', hasAdminRole);
+        
+        if (!hasAdminRole) {
+          console.log('❌ User does not have admin role, showing login form');
+          setShowLogin(true);
+          setLoading(false);
+          return;
+        }
+
+        setIsAdmin(true);
+        setShowLogin(false);
         console.log('✅ Admin authentication successful');
 
       } catch (error) {
         console.error('❌ Auth check error:', error);
-        navigate('/');
+        setShowLogin(true);
       } finally {
         setLoading(false);
       }
@@ -114,13 +92,16 @@ export const useAdminAuth = () => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    navigate('/');
+    setUser(null);
+    setIsAdmin(false);
+    setShowLogin(true);
   };
 
   return {
     user,
     isAdmin,
     loading,
+    showLogin,
     signOut
   };
 }; 
