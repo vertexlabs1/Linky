@@ -105,6 +105,9 @@ serve(async (req) => {
     } else if (passwordSetupUrl.includes('localhost')) {
       passwordSetupUrl = passwordSetupUrl.replace('http://localhost', 'https://www.uselinky.app')
       console.log('✅ Fixed localhost to production:', passwordSetupUrl)
+    } else if (passwordSetupUrl.includes('127.0.0.1:3000')) {
+      passwordSetupUrl = passwordSetupUrl.replace('http://127.0.0.1:3000', 'https://www.uselinky.app')
+      console.log('✅ Fixed 127.0.0.1:3000 to production:', passwordSetupUrl)
     } else if (passwordSetupUrl.includes('127.0.0.1')) {
       passwordSetupUrl = passwordSetupUrl.replace('http://127.0.0.1', 'https://www.uselinky.app')
       console.log('✅ Fixed 127.0.0.1 to production:', passwordSetupUrl)
