@@ -32,7 +32,8 @@ import {
   ExternalLink,
   Copy,
   Shield,
-  Activity
+  Activity,
+  Edit
 } from 'lucide-react';
 import { getPlanById, getStatusIcon, getStatusColor, formatPrice } from '../../lib/stripe/stripe-service';
 
@@ -84,6 +85,18 @@ export const UsersPage: React.FC = () => {
   const [userTransactions, setUserTransactions] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [loadingActions, setLoadingActions] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    company: '',
+    job_title: '',
+    status: '',
+    is_admin: false,
+    founding_member: false
+  });
 
   // Create user form state
   const [newUser, setNewUser] = useState({
@@ -157,6 +170,65 @@ export const UsersPage: React.FC = () => {
       console.error('Error updating user:', error);
       toast.error('Failed to update user');
     }
+  };
+
+  const handleSaveUser = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setLoadingActions(true);
+      const { error } = await supabase
+        .from('users')
+        .update({
+          first_name: editForm.first_name,
+          last_name: editForm.last_name,
+          email: editForm.email,
+          phone: editForm.phone,
+          company: editForm.company,
+          job_title: editForm.job_title,
+          status: editForm.status,
+          is_admin: editForm.is_admin,
+          founding_member: editForm.founding_member,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      toast.success('User updated successfully');
+      setIsEditing(false);
+      fetchUsers(); // Refresh the users list
+      
+      // Update the selected user with new data
+      const updatedUser = { ...selectedUser, ...editForm };
+      setSelectedUser(updatedUser);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error('Failed to update user');
+    } finally {
+      setLoadingActions(false);
+    }
+  };
+
+  const startEditing = () => {
+    if (selectedUser) {
+      setEditForm({
+        first_name: selectedUser.first_name || '',
+        last_name: selectedUser.last_name || '',
+        email: selectedUser.email || '',
+        phone: selectedUser.phone || '',
+        company: selectedUser.company || '',
+        job_title: selectedUser.job_title || '',
+        status: selectedUser.status || '',
+        is_admin: selectedUser.is_admin || false,
+        founding_member: selectedUser.founding_member || false
+      });
+      setIsEditing(true);
+    }
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
   };
 
   const fetchUsers = async () => {
@@ -644,75 +716,191 @@ export const UsersPage: React.FC = () => {
                 {/* User Information */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="w-5 h-5" />
-                      User Information
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <User className="w-5 h-5" />
+                        User Information
+                      </div>
+                      {!isEditing && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={startEditing}
+                          className="flex items-center gap-1"
+                        >
+                          <Edit className="w-3 h-3" />
+                          Edit
+                        </Button>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center space-x-4">
-                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-white">
-                          {selectedUser.first_name ? selectedUser.first_name.charAt(0) : selectedUser.email.charAt(0)}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-semibold">
-                          {selectedUser.first_name && selectedUser.last_name 
-                            ? `${selectedUser.first_name} ${selectedUser.last_name}` 
-                            : selectedUser.first_name || selectedUser.last_name || 'N/A'
-                          }
-                        </h3>
-                        <p className="text-gray-600">{selectedUser.email}</p>
-                        <div className="flex gap-2 mt-2">
-                          <Badge variant={selectedUser.is_admin ? "default" : "secondary"}>
-                            {selectedUser.is_admin ? 'Admin' : 'User'}
-                          </Badge>
-                          {selectedUser.founding_member && (
-                            <Badge variant="outline" className="border-yellow-300 text-yellow-700">
-                              <Crown className="w-3 h-3 mr-1" />
-                              Founding Member
-                            </Badge>
-                          )}
+                    {isEditing ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">First Name</label>
+                            <Input
+                              value={editForm.first_name}
+                              onChange={(e) => setEditForm({...editForm, first_name: e.target.value})}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Last Name</label>
+                            <Input
+                              value={editForm.last_name}
+                              onChange={(e) => setEditForm({...editForm, last_name: e.target.value})}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-sm font-medium">Email</label>
+                            <Input
+                              value={editForm.email}
+                              onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Phone</label>
+                            <Input
+                              value={editForm.phone}
+                              onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Company</label>
+                            <Input
+                              value={editForm.company}
+                              onChange={(e) => setEditForm({...editForm, company: e.target.value})}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-sm font-medium">Job Title</label>
+                            <Input
+                              value={editForm.job_title}
+                              onChange={(e) => setEditForm({...editForm, job_title: e.target.value})}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Status</label>
+                            <Select
+                              value={editForm.status}
+                              onValueChange={(value) => setEditForm({...editForm, status: value})}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="inactive">Inactive</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="is_admin_edit"
+                              checked={editForm.is_admin}
+                              onChange={(e) => setEditForm({...editForm, is_admin: e.target.checked})}
+                              className="rounded"
+                            />
+                            <label htmlFor="is_admin_edit" className="text-sm font-medium">Admin Access</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="founding_member_edit"
+                              checked={editForm.founding_member}
+                              onChange={(e) => setEditForm({...editForm, founding_member: e.target.checked})}
+                              className="rounded"
+                            />
+                            <label htmlFor="founding_member_edit" className="text-sm font-medium">Founding Member</label>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleSaveUser}
+                            disabled={loadingActions}
+                            className="flex-1"
+                          >
+                            {loadingActions ? 'Saving...' : 'Save Changes'}
+                          </Button>
+                          <Button
+                            onClick={cancelEditing}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center space-x-4">
+                          <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                            <span className="text-2xl font-bold text-white">
+                              {selectedUser.first_name ? selectedUser.first_name.charAt(0) : selectedUser.email.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-semibold">
+                              {selectedUser.first_name && selectedUser.last_name 
+                                ? `${selectedUser.first_name} ${selectedUser.last_name}` 
+                                : selectedUser.first_name || selectedUser.last_name || 'N/A'
+                              }
+                            </h3>
+                            <p className="text-gray-600">{selectedUser.email}</p>
+                            <div className="flex gap-2 mt-2">
+                              <Badge variant={selectedUser.is_admin ? "default" : "secondary"}>
+                                {selectedUser.is_admin ? 'Admin' : 'User'}
+                              </Badge>
+                              {selectedUser.founding_member && (
+                                <Badge variant="outline" className="border-yellow-300 text-yellow-700">
+                                  <Crown className="w-3 h-3 mr-1" />
+                                  Founding Member
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-4 pt-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Phone</label>
-                        <p className="text-sm">{selectedUser.phone || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Company</label>
-                        <p className="text-sm">{selectedUser.company || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Job Title</label>
-                        <p className="text-sm">{selectedUser.job_title || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Status</label>
-                        <div className="flex items-center gap-1">
-                          {getStatusDisplay(selectedUser).icon}
-                          <span className={`text-sm ${getStatusDisplay(selectedUser).color}`}>
-                            {getStatusDisplay(selectedUser).text}
-                          </span>
+                        <div className="grid grid-cols-2 gap-4 pt-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Phone</label>
+                            <p className="text-sm">{selectedUser.phone || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Company</label>
+                            <p className="text-sm">{selectedUser.company || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Job Title</label>
+                            <p className="text-sm">{selectedUser.job_title || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Status</label>
+                            <div className="flex items-center gap-1">
+                              {getStatusDisplay(selectedUser).icon}
+                              <span className={`text-sm ${getStatusDisplay(selectedUser).color}`}>
+                                {getStatusDisplay(selectedUser).text}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Joined</label>
+                            <p className="text-sm">
+                              {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Last Sync</label>
+                            <p className="text-sm">
+                              {selectedUser.last_sync_at ? new Date(selectedUser.last_sync_at).toLocaleDateString() : 'N/A'}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Joined</label>
-                        <p className="text-sm">
-                          {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Last Sync</label>
-                        <p className="text-sm">
-                          {selectedUser.last_sync_at ? new Date(selectedUser.last_sync_at).toLocaleDateString() : 'N/A'}
-                        </p>
-                      </div>
-                    </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -798,7 +986,8 @@ export const UsersPage: React.FC = () => {
                       <div>
                         <label className="text-sm font-medium text-gray-600">Current Plan</label>
                         <p className="text-sm">
-                          {selectedUser.current_plan_id ? getPlanById(selectedUser.current_plan_id)?.name || 'N/A' : 'Free'}
+                          {selectedUser.founding_member ? 'Founding Member ($25/3mo)' : 
+                           selectedUser.current_plan_id ? getPlanById(selectedUser.current_plan_id)?.name || 'N/A' : 'Free'}
                         </p>
                       </div>
                       <div>
