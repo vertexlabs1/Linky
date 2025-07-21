@@ -100,13 +100,7 @@ const AdminLogin: React.FC = () => {
             </Button>
           </form>
 
-          <div className="mt-4 text-center text-sm text-gray-600">
-            <p>Default admin credentials:</p>
-            <p className="font-mono text-xs mt-1">
-              Email: tyler@vxlabs.co<br />
-              Password: LinkyAdmin2024!
-            </p>
-          </div>
+          
         </CardContent>
       </Card>
     </div>
