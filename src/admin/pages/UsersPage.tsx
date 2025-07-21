@@ -1449,14 +1449,6 @@ export const UsersPage: React.FC = () => {
                         >
                           {loadingActions ? 'Syncing...' : 'Sync with Stripe'}
                         </Button>
-                        <Button
-                          onClick={() => fetchUserTransactions(selectedUser.id)}
-                          disabled={loadingTransactions}
-                          variant="outline"
-                          className="w-full"
-                        >
-                          {loadingTransactions ? 'Loading...' : 'Refresh Payment History'}
-                        </Button>
                       </div>
                     )}
                       </div>

@@ -257,9 +257,9 @@ export function calculateProration(
   return Math.max(0, newAmount - unusedAmount);
 }
 
-// Format price for display
+// Format price for display (assumes price is in cents)
 export function formatPrice(price: number): string {
-  return `$${price.toFixed(2)}`;
+  return `$${(price / 100).toFixed(2)}`;
 }
 
 // Format plan display name
