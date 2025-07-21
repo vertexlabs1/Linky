@@ -57,8 +57,8 @@ const FoundingMemberSection = () => {
       // Create checkout session directly - user creation handled by Edge Function
       const { url } = await api.createFoundingMemberSchedule({
         customerEmail: form.email,
-        successUrl: `https://uselinky.app/founding-member-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `https://uselinky.app`,
+        successUrl: `https://linky-kc2rxs49n-vertex-labs.vercel.app/founding-member-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `https://linky-kc2rxs49n-vertex-labs.vercel.app`,
         metadata: {
           firstName: form.firstName,
           lastName: form.lastName,
