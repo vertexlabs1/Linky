@@ -29,7 +29,49 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Generate password setup link using Supabase Auth
+    // First, check if user exists in auth.users
+    const { data: authUsers, error: listError } = await supabase.auth.admin.listUsers()
+    
+    if (listError) {
+      console.error('Failed to list auth users:', listError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to check auth users' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const existingUser = authUsers.users.find(user => user.email === email)
+    
+    // If user doesn't exist in auth, create them first
+    if (!existingUser) {
+      console.log('Creating auth user for:', email)
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        email: email,
+        email_confirm: true,
+        user_metadata: {
+          first_name: firstName,
+          last_name: lastName || ''
+        }
+      })
+      
+      if (createError) {
+        console.error('Failed to create auth user:', createError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to create auth user' }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+      
+      console.log('Auth user created successfully:', newUser.user.id)
+    }
+
+    // Now generate password setup link using Supabase Auth
     const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
       type: 'recovery',
       email: email,
