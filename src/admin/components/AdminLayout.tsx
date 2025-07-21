@@ -15,7 +15,8 @@ import {
   LogOut,
   Shield,
   TrendingUp,
-  Calendar
+  Calendar,
+  Activity as ActivityIcon
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
@@ -34,6 +35,12 @@ const AdminLayout: React.FC = () => {
       href: '/admin/users',
       icon: Users,
       current: location.pathname.startsWith('/admin/users')
+    },
+    {
+      name: 'Health',
+      href: '/admin/health',
+      icon: ActivityIcon,
+      current: location.pathname.startsWith('/admin/health')
     },
     {
       name: 'Subscriptions',

@@ -10,12 +10,9 @@ import Dashboard from "./pages/Dashboard";
 import SetupPassword from "./pages/SetupPassword";
 import FoundingMemberSuccess from "./pages/FoundingMemberSuccess";
 import NotFound from "./pages/NotFound";
-import { AdminUsers } from "./components/pages/AdminUsers";
-import AdminSubscriptions from "./components/pages/AdminSubscriptions";
-import AdminNewsletter from "./components/pages/AdminNewsletter";
-import AdminPromotions from "./components/pages/AdminPromotions";
-import AdminStripeEvents from "./components/pages/AdminStripeEvents";
-import AdminPermissions from "./components/pages/AdminRoles";
+
+// Import admin routes
+import { adminRoutes } from "./admin/routes";
 
 const queryClient = new QueryClient();
 
@@ -36,13 +33,8 @@ const App = () => (
             <Route path="/setup-password" element={<SetupPassword />} />
             <Route path="/founding-member-success" element={<FoundingMemberSuccess />} />
             
-            {/* Admin Routes - Direct Access */}
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
-            <Route path="/admin/newsletter" element={<AdminNewsletter />} />
-            <Route path="/admin/promotions" element={<AdminPromotions />} />
-            <Route path="/admin/stripe-events" element={<AdminStripeEvents />} />
-            <Route path="/admin/permissions" element={<AdminPermissions />} />
+            {/* Admin Routes - Single System */}
+            {adminRoutes}
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
