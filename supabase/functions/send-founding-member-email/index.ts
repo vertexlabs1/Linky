@@ -95,10 +95,28 @@ serve(async (req) => {
 
     let passwordSetupUrl = resetData.properties.action_link
     
+    console.log('🔗 Original URL generated:', passwordSetupUrl)
+    
     // Fix the URL if it's pointing to localhost (due to project site URL setting)
+    // Handle various localhost patterns
     if (passwordSetupUrl.includes('localhost:3000')) {
       passwordSetupUrl = passwordSetupUrl.replace('http://localhost:3000', 'https://www.uselinky.app')
-      console.log('Fixed redirect URL from localhost to production:', passwordSetupUrl)
+      console.log('✅ Fixed localhost:3000 to production:', passwordSetupUrl)
+    } else if (passwordSetupUrl.includes('localhost')) {
+      passwordSetupUrl = passwordSetupUrl.replace('http://localhost', 'https://www.uselinky.app')
+      console.log('✅ Fixed localhost to production:', passwordSetupUrl)
+    } else if (passwordSetupUrl.includes('127.0.0.1')) {
+      passwordSetupUrl = passwordSetupUrl.replace('http://127.0.0.1', 'https://www.uselinky.app')
+      console.log('✅ Fixed 127.0.0.1 to production:', passwordSetupUrl)
+    } else {
+      console.log('ℹ️ URL does not contain localhost, using as-is:', passwordSetupUrl)
+    }
+    
+    // Also check for any remaining localhost references in the URL
+    if (passwordSetupUrl.includes('localhost') || passwordSetupUrl.includes('127.0.0.1')) {
+      console.log('⚠️ Warning: URL still contains localhost after replacement:', passwordSetupUrl)
+    } else {
+      console.log('✅ Final URL looks good:', passwordSetupUrl)
     }
 
     // Use direct fetch to Resend API (same as working welcome email function)
@@ -462,7 +480,11 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: 'Founding member email sent successfully',
-        data: emailResult 
+        data: emailResult,
+        debug: {
+          originalUrl: resetData.properties.action_link,
+          finalUrl: passwordSetupUrl
+        }
       }),
       { 
         status: 200, 
