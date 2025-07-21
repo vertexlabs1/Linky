@@ -13,15 +13,15 @@ const path = require('path');
 // Sandbox configuration
 const SANDBOX_CONFIG = {
   // Stripe Sandbox Keys (from your screenshot)
-  STRIPE_PUBLISHABLE_KEY: 'pk_test_51RlcEWGgWLKrksJxrWfvsZRIEULa9Ax59echHsFsJ0X91ws2aR3ygGNRhsHGwvDQovgBCEfybqAeCNa5mgBeLj0900qZVLLrNT',
-  STRIPE_SECRET_KEY: 'sk_test_your_sandbox_secret_key_here',
+  STRIPE_PUBLISHABLE_KEY: 'your_stripe_publishable_key_here',
+  STRIPE_SECRET_KEY: 'your_stripe_secret_key_here',
   
   // Supabase Configuration
   SUPABASE_URL: 'https://jydldvvsxwosyzwttmui.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5ZGxkdnZzeHdvc3l6d3R0bXVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTgwNTAsImV4cCI6MjA2ODI3NDA1MH0.kt8G6d6ZlqxgpU4HFg_vDDBg-0FlozNF4XUq9bf22uw',
+  SUPABASE_ANON_KEY: 'your_supabase_anon_key_here',
   
   // Email Configuration
-  FROM_EMAIL: 'team@linky.app'
+  FROM_EMAIL: 'team@uselinky.app'
 };
 
 function log(message, type = 'info') {
