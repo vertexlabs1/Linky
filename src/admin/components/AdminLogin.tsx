@@ -32,7 +32,10 @@ const AdminLogin: React.FC = () => {
 
       if (data.user) {
         console.log('✅ Login successful:', data.user.email);
-        navigate('/admin');
+        // Small delay to ensure auth state is updated, then redirect
+        setTimeout(() => {
+          window.location.href = '/admin';
+        }, 100);
       }
     } catch (err) {
       setError('An unexpected error occurred');
