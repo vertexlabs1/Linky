@@ -430,6 +430,9 @@ export default function AdminDashboard() {
     )
   }
 
+  // Add error handling for empty data
+  const hasData = waitlist.length > 0 || foundingMembers.length > 0 || emailTemplates.length > 0
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
@@ -437,6 +440,23 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-600 mt-2">Manage waitlist, founding members, subscriptions, and email templates</p>
         </div>
+
+        {!hasData && (
+          <div className="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="text-lg font-semibold text-blue-800 mb-2">📊 No Data Available</h3>
+            <p className="text-blue-700 mb-4">
+              The admin dashboard is working, but there's no data to display yet. This is normal if:
+            </p>
+            <ul className="text-blue-700 space-y-1 mb-4">
+              <li>• No one has signed up for the waitlist yet</li>
+              <li>• No founding members have completed payment</li>
+              <li>• Email templates haven't been created</li>
+            </ul>
+            <p className="text-blue-600 text-sm">
+              <strong>Next steps:</strong> Try signing up for the waitlist or completing a founding member payment to see data here.
+            </p>
+          </div>
+        )}
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
