@@ -23,7 +23,16 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Calendar
+  Calendar,
+  Clock,
+  HelpCircle,
+  Send,
+  Key,
+  DollarSign,
+  ExternalLink,
+  Copy,
+  Shield,
+  Activity
 } from 'lucide-react';
 import { getPlanById, getStatusIcon, getStatusColor, formatPrice } from '../../lib/stripe/stripe-service';
 
@@ -39,6 +48,7 @@ interface User {
   stripe_subscription_id?: string;
   subscription_plan: string;
   subscription_status: string;
+  current_plan_id?: string;
   current_period_end?: string;
   founding_member?: boolean;
   is_admin?: boolean;
@@ -52,6 +62,8 @@ interface Transaction {
   amount: number;
   status: string;
   created_at: string;
+  description?: string;
+  stripe_payment_intent_id?: string;
 }
 
 export const UsersPage: React.FC = () => {
@@ -65,6 +77,13 @@ export const UsersPage: React.FC = () => {
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showTransactions, setShowTransactions] = useState(false);
+
+  // New state for comprehensive user profile
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [userTransactions, setUserTransactions] = useState<Transaction[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingActions, setLoadingActions] = useState(false);
 
   // Create user form state
   const [newUser, setNewUser] = useState({
@@ -95,25 +114,27 @@ export const UsersPage: React.FC = () => {
     fetchUsers();
   }, []);
 
-  // Open modal when selectedUserId changes
+  // Open user profile when selectedUserId changes
   useEffect(() => {
     if (selectedUserId) {
       const user = users.find(u => u.id === selectedUserId);
-      setEditUser(user || null);
-      setShowEditModal(!!user);
-    } else {
-      setShowEditModal(false);
-      setEditUser(null);
+      if (user) {
+        setSelectedUser(user);
+        setShowUserProfile(true);
+        fetchUserTransactions(user.id);
+      }
     }
   }, [selectedUserId, users]);
 
   const handleEditChange = (field: keyof User, value: any) => {
-    if (!editUser) return;
-    setEditUser({ ...editUser, [field]: value });
+    if (editUser) {
+      setEditUser({ ...editUser, [field]: value });
+    }
   };
 
   const handleSaveEdit = async () => {
     if (!editUser) return;
+
     try {
       const { error } = await supabase
         .from('users')
@@ -122,103 +143,115 @@ export const UsersPage: React.FC = () => {
           last_name: editUser.last_name,
           email: editUser.email,
           status: editUser.status,
-          is_admin: editUser.is_admin,
+          is_admin: editUser.is_admin
         })
         .eq('id', editUser.id);
-      if (error) {
-        toast.error('Failed to update user: ' + error.message);
-        return;
-      }
-      toast.success('User updated successfully!');
+
+      if (error) throw error;
+
+      toast.success('User updated successfully');
       setShowEditModal(false);
       setSelectedUserId(null);
-      await fetchUsers();
-    } catch (err) {
-      toast.error('Unexpected error updating user');
+      fetchUsers();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error('Failed to update user');
     }
   };
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Fetching users...');
-
-      const { data: usersData, error: usersError } = await supabase
+      const { data, error } = await supabase
         .from('users')
-        .select(`
-          id,
-          auth_user_id,
-          email,
-          first_name,
-          last_name,
-          phone,
-          company,
-          job_title,
-          stripe_customer_id,
-          stripe_subscription_id,
-          subscription_plan,
-          subscription_status,
-          current_period_end,
-          founding_member,
-          status,
-          is_admin,
-          last_sync_at,
-          created_at
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (usersError) {
-        console.error('Error fetching users:', usersError);
-        // If is_admin column doesn't exist, try without it
-        if (usersError.message.includes('is_admin')) {
-          console.log('Retrying without is_admin column...');
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('users')
-            .select(`
-              id,
-              auth_user_id,
-              email,
-              first_name,
-              last_name,
-              phone,
-              company,
-              job_title,
-              stripe_customer_id,
-              stripe_subscription_id,
-              subscription_plan,
-              subscription_status,
-              current_period_end,
-              founding_member,
-              status,
-              last_sync_at,
-              created_at
-            `)
-            .order('created_at', { ascending: false });
-
-          if (fallbackError) {
-            console.error('Error with fallback query:', fallbackError);
-            return;
-          }
-
-          // Add is_admin field with default value
-          const usersWithAdmin = fallbackData?.map(user => ({
-            ...user,
-            is_admin: user.email === 'tyler@vxlabs.co' // Default Tyler as admin
-          })) || [];
-
-          setUsers(usersWithAdmin);
-          return;
-        }
-        return;
-      }
-
-      setUsers(usersData || []);
-      console.log(`✅ Fetched ${usersData?.length || 0} users`);
+      if (error) throw error;
+      setUsers(data || []);
     } catch (error) {
-      console.error('Unexpected error fetching users:', error);
+      console.error('Error fetching users:', error);
       toast.error('Failed to fetch users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserTransactions = async (userId: string) => {
+    try {
+      setLoadingTransactions(true);
+      // Fetch transactions from your transactions table
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUserTransactions(data || []);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      // Don't show error toast for transactions as they might not exist yet
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
+  const sendWelcomeEmail = async (email: string, firstName: string) => {
+    try {
+      setLoadingActions(true);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-welcome-email`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ 
+          email, 
+          firstName,
+          source: 'admin_dashboard'
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to send email: ${response.status} ${errorText}`);
+      }
+      
+      toast.success(`Welcome email sent to ${email}`);
+    } catch (error) {
+      console.error('Error sending welcome email:', error);
+      toast.error(`Failed to send welcome email: ${error.message}`);
+    } finally {
+      setLoadingActions(false);
+    }
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    try {
+      setLoadingActions(true);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-password-reset`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to send password reset: ${response.status} ${errorText}`);
+      }
+      
+      toast.success(`Password reset sent to ${email}`);
+    } catch (error) {
+      console.error('Error sending password reset:', error);
+      toast.error(`Failed to send password reset: ${error.message}`);
+    } finally {
+      setLoadingActions(false);
     }
   };
 
@@ -230,30 +263,21 @@ export const UsersPage: React.FC = () => {
           email: userData.email,
           first_name: userData.first_name,
           last_name: userData.last_name,
-          phone: userData.phone,
-          company: userData.company,
-          job_title: userData.job_title,
+          phone: userData.phone || null,
+          company: userData.company || null,
+          job_title: userData.job_title || null,
           subscription_plan: userData.subscription_plan,
-          subscription_status: 'inactive',
           status: userData.status,
           is_admin: userData.is_admin,
-          founding_member: userData.founding_member,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          founding_member: userData.founding_member
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Error creating user:', error);
-        toast.error('Failed to create user: ' + error.message);
-        return;
-      }
+      if (error) throw error;
 
-      // Refresh the users list
-      await fetchUsers();
-
-      // Reset form
+      toast.success('User created successfully');
+      setShowCreateUser(false);
       setNewUser({
         email: '',
         first_name: '',
@@ -266,71 +290,22 @@ export const UsersPage: React.FC = () => {
         is_admin: false,
         founding_member: false
       });
-
-      setShowCreateUser(false);
-      toast.success('User created successfully!');
+      fetchUsers();
     } catch (error) {
       console.error('Error creating user:', error);
       toast.error('Failed to create user');
     }
   };
 
-  const filteredUsers = useMemo(() => {
-    let filtered = users;
-
-    // Apply search filter
-    if (debouncedSearchTerm) {
-      filtered = filtered.filter(user =>
-        user.email?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        user.first_name?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        user.last_name?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        `${user.first_name} ${user.last_name}`.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-      );
-    }
-
-    // Apply type filter
-    switch (filterType) {
-      case 'admins':
-        filtered = filtered.filter(user => user.is_admin === true);
-        break;
-      case 'founding_members':
-        filtered = filtered.filter(user => user.founding_member === true);
-        break;
-      case 'active':
-        filtered = filtered.filter(user => user.status === 'active');
-        break;
-      case 'inactive':
-        filtered = filtered.filter(user => user.status !== 'active');
-        break;
-      case 'all':
-      default:
-        // No additional filtering
-        break;
-    }
-
-    return filtered;
-  }, [users, debouncedSearchTerm, filterType]);
-
-  const stats = useMemo(() => {
-    const totalUsers = users.length;
-    const admins = users.filter(user => user.is_admin === true).length;
-    const foundingMembers = users.filter(user => user.founding_member === true).length;
-    const activeSubscriptions = users.filter(user => user.status === 'active').length;
-
-    return { totalUsers, admins, foundingMembers, activeSubscriptions };
-  }, [users]);
-
   const getSubscriptionBadgeColor = (plan: string) => {
-    const colors: Record<string, string> = {
-      'prospector': 'bg-blue-100 text-blue-800',
-      'networker': 'bg-purple-100 text-purple-800',
-      'rainmaker': 'bg-gold-100 text-gold-800',
-      'founding_member': 'bg-yellow-100 text-yellow-800'
-    };
-    return colors[plan?.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    switch (plan) {
+      case 'prospector': return 'bg-blue-100 text-blue-800';
+      case 'rainmaker': return 'bg-purple-100 text-purple-800';
+      case 'founding_member': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
-  // Add a function to get the proper status display
   const getStatusDisplay = (user: User) => {
     // Admin users who can log in should show as Active
     if (user.is_admin && user.status === 'active') {
@@ -348,98 +323,88 @@ export const UsersPage: React.FC = () => {
         return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
       case 'inactive':
         return { text: 'Inactive', color: 'text-red-600', icon: <XCircle className="w-3 h-3" /> };
-      case 'paid_not_onboarded':
-        return { text: 'Paid, Account Not Created', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
       case 'pending':
-        return { text: 'Pending', color: 'text-yellow-600', icon: <AlertTriangle className="w-3 h-3" /> };
+        return { text: 'Pending', color: 'text-blue-600', icon: <Clock className="w-3 h-3" /> };
       default:
-        return { text: 'Unknown', color: 'text-gray-600', icon: <AlertTriangle className="w-3 h-3" /> };
+        return { text: 'Unknown', color: 'text-gray-600', icon: <HelpCircle className="w-3 h-3" /> };
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin" />
-        <span className="ml-2">Loading users...</span>
-      </div>
-    );
-  }
+  const filteredUsers = useMemo(() => {
+    let filtered = users;
+
+    if (debouncedSearchTerm) {
+      filtered = filtered.filter(user =>
+        user.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        user.first_name?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        user.last_name?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      );
+    }
+
+    switch (filterType) {
+      case 'admins':
+        filtered = filtered.filter(user => user.is_admin);
+        break;
+      case 'founding_members':
+        filtered = filtered.filter(user => user.founding_member);
+        break;
+      case 'active':
+        filtered = filtered.filter(user => user.status === 'active');
+        break;
+      case 'inactive':
+        filtered = filtered.filter(user => user.status === 'inactive');
+        break;
+    }
+
+    return filtered;
+  }, [users, debouncedSearchTerm, filterType]);
+
+  const exportUsers = () => {
+    const csvContent = [
+      ['Email', 'Name', 'Role', 'Subscription', 'Status', 'Joined'],
+      ...filteredUsers.map(user => [
+        user.email,
+        `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A',
+        user.is_admin ? 'Admin' : 'User',
+        user.subscription_plan || 'Free',
+        user.status,
+        new Date(user.created_at).toLocaleDateString()
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'users.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-gray-500">Manage user accounts and subscriptions</p>
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-600 mt-2">Manage all users and their subscriptions</p>
         </div>
-        <Button
-          onClick={() => setShowCreateUser(true)}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-        >
-          <Plus className="w-4 h-4" />
-          Add User
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={exportUsers} variant="outline" className="flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            Export
+          </Button>
+          <Button onClick={() => setShowCreateUser(true)} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add User
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <User className="w-8 h-8 text-blue-500" />
-              <div>
-                <p className="text-sm text-gray-500">Total Users</p>
-                <p className="text-2xl font-bold">{stats.totalUsers}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Crown className="w-8 h-8 text-red-500" />
-              <div>
-                <p className="text-sm text-gray-500">Admins</p>
-                <p className="text-2xl font-bold">{stats.admins}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-8 h-8 text-yellow-500" />
-              <div>
-                <p className="text-sm text-gray-500">Founding Members</p>
-                <p className="text-2xl font-bold">{stats.foundingMembers}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <CreditCard className="w-8 h-8 text-green-500" />
-              <div>
-                <p className="text-sm text-gray-500">Active Subscriptions</p>
-                <p className="text-2xl font-bold">{stats.activeSubscriptions}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
+      <div className="flex gap-4 items-center">
+        <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
-            placeholder="Search users by name or email..."
+            placeholder="Search users..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -447,134 +412,90 @@ export const UsersPage: React.FC = () => {
         </div>
         <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
           <SelectTrigger className="w-48">
-            <Filter className="w-4 h-4 mr-2" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Users</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
             <SelectItem value="admins">Admins</SelectItem>
             <SelectItem value="founding_members">Founding Members</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={fetchUsers}>
-          <RefreshCw className="w-4 h-4" />
-        </Button>
       </div>
 
-      {/* Users Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Users ({filteredUsers.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredUsers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">User</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Role</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Subscription</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Status</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Joined</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-5 px-6">
-                        <div className="space-y-1">
-                          <p className="font-medium text-gray-900">{user.first_name} {user.last_name}</p>
-                          <p className="text-sm text-gray-500 flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {user.email}
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-4 px-6 font-medium text-gray-900">User</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-900">Role</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-900">Subscription</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-900">Status</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-900">Joined</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-900">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredUsers.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-150">
+                    <td className="py-5 px-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-sm font-medium text-gray-600">
+                            {user.first_name ? user.first_name.charAt(0) : user.email.charAt(0)}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {user.first_name && user.last_name 
+                              ? `${user.first_name} ${user.last_name}` 
+                              : user.first_name || user.last_name || 'N/A'
+                            }
                           </p>
-                          {user.phone && (
-                            <p className="text-sm text-gray-500 flex items-center gap-1">
-                              <Phone className="w-3 h-3" />
-                              {user.phone}
-                            </p>
-                          )}
+                          <p className="text-sm text-gray-500">{user.email}</p>
                         </div>
-                      </td>
-                      <td className="py-5 px-6">
-                        <div className="flex items-center gap-2">
-                          {user.is_admin === true ? (
-                            <Badge className="bg-red-100 text-red-800 border border-red-200">
-                              <Crown className="w-3 h-3 mr-1" />
-                              Admin
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-gray-50">
-                              <User className="w-3 h-3 mr-1" />
-                              User
-                            </Badge>
-                          )}
+                      </div>
+                    </td>
+                    <td className="py-5 px-6">
+                      <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium border border-gray-300 text-gray-700">
+                        {user.is_admin ? 'Admin' : 'User'}
+                      </Badge>
+                    </td>
+                    <td className="py-5 px-6 text-sm text-gray-700">
+                      {user.current_plan_id ? getPlanById(user.current_plan_id)?.name || 'N/A' : 'Free'}
+                    </td>
+                    <td className="py-5 px-6">
+                      <Badge
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusDisplay(user).color} border ${getStatusDisplay(user).color.replace('text', 'border')}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          {getStatusDisplay(user).icon}
+                          <span>{getStatusDisplay(user).text}</span>
                         </div>
-                      </td>
-                      <td className="py-5 px-6">
-                        <div className="space-y-2">
-                          <Badge className={getSubscriptionBadgeColor(user.subscription_plan)}>
-                            {user.subscription_plan?.replace(/_/g, ' ').toUpperCase()}
-                          </Badge>
-                          {user.founding_member === true && (
-                            <Badge variant="outline" className="text-xs bg-yellow-50 border-yellow-200 text-yellow-800">
-                              Founding Member
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-5 px-6">
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const statusDisplay = getStatusDisplay(user);
-                            return (
-                              <>
-                                {statusDisplay.icon}
-                                <span className={`text-sm font-medium ${statusDisplay.color}`}>
-                                  {statusDisplay.text}
-                                </span>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </td>
-                      <td className="py-5 px-6">
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="py-5 px-6">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedUserId(user.id)}
-                          className="flex items-center gap-2 hover:bg-gray-50"
-                        >
-                          <Eye className="w-3 h-3" />
-                          View Details
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <User className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900">No users found</h3>
-              <p className="text-gray-500">
-                {debouncedSearchTerm || filterType !== 'all'
-                  ? 'Try adjusting your search or filter criteria.'
-                  : 'Get started by creating your first user.'}
-              </p>
-            </div>
-          )}
+                      </Badge>
+                    </td>
+                    <td className="py-5 px-6 text-sm text-gray-700">
+                      {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="py-5 px-6">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedUserId(user.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        View Details
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
@@ -587,52 +508,45 @@ export const UsersPage: React.FC = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">First Name *</label>
-                <Input
-                  value={newUser.first_name}
-                  onChange={(e) => setNewUser({...newUser, first_name: e.target.value})}
-                  placeholder="John"
+                <label className="text-sm font-medium">First Name</label>
+                <Input 
+                  value={newUser.first_name} 
+                  onChange={e => setNewUser({...newUser, first_name: e.target.value})} 
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Last Name *</label>
-                <Input
-                  value={newUser.last_name}
-                  onChange={(e) => setNewUser({...newUser, last_name: e.target.value})}
-                  placeholder="Doe"
+                <label className="text-sm font-medium">Last Name</label>
+                <Input 
+                  value={newUser.last_name} 
+                  onChange={e => setNewUser({...newUser, last_name: e.target.value})} 
                 />
               </div>
               <div className="col-span-2">
-                <label className="text-sm font-medium">Email *</label>
-                <Input
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                  placeholder="john@example.com"
+                <label className="text-sm font-medium">Email</label>
+                <Input 
+                  value={newUser.email} 
+                  onChange={e => setNewUser({...newUser, email: e.target.value})} 
                 />
               </div>
               <div>
                 <label className="text-sm font-medium">Phone</label>
-                <Input
-                  value={newUser.phone}
-                  onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
-                  placeholder="(555) 123-4567"
+                <Input 
+                  value={newUser.phone} 
+                  onChange={e => setNewUser({...newUser, phone: e.target.value})} 
                 />
               </div>
               <div>
                 <label className="text-sm font-medium">Company</label>
-                <Input
-                  value={newUser.company}
-                  onChange={(e) => setNewUser({...newUser, company: e.target.value})}
-                  placeholder="Company Name"
+                <Input 
+                  value={newUser.company} 
+                  onChange={e => setNewUser({...newUser, company: e.target.value})} 
                 />
               </div>
-              <div>
+              <div className="col-span-2">
                 <label className="text-sm font-medium">Job Title</label>
-                <Input
-                  value={newUser.job_title}
-                  onChange={(e) => setNewUser({...newUser, job_title: e.target.value})}
-                  placeholder="Job Title"
+                <Input 
+                  value={newUser.job_title} 
+                  onChange={e => setNewUser({...newUser, job_title: e.target.value})} 
                 />
               </div>
               <div>
@@ -646,7 +560,6 @@ export const UsersPage: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="prospector">Prospector</SelectItem>
-                    <SelectItem value="networker">Networker</SelectItem>
                     <SelectItem value="rainmaker">Rainmaker</SelectItem>
                   </SelectContent>
                 </Select>
@@ -707,58 +620,270 @@ export const UsersPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Modal */}
-      <Dialog open={showEditModal} onOpenChange={(open) => { setShowEditModal(open); if (!open) setSelectedUserId(null); }}>
-        <DialogContent className="max-w-2xl">
+      {/* Comprehensive User Profile Modal */}
+      <Dialog open={showUserProfile} onOpenChange={(open) => { 
+        setShowUserProfile(open); 
+        if (!open) {
+          setSelectedUserId(null);
+          setSelectedUser(null);
+          setUserTransactions([]);
+        }
+      }}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit User Details</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              User Profile
+            </DialogTitle>
           </DialogHeader>
-          {editUser ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">First Name</label>
-                  <Input value={editUser.first_name} onChange={e => handleEditChange('first_name', e.target.value)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Last Name</label>
-                  <Input value={editUser.last_name} onChange={e => handleEditChange('last_name', e.target.value)} />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-sm font-medium">Email</label>
-                  <Input value={editUser.email} onChange={e => handleEditChange('email', e.target.value)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Status</label>
-                  <Select value={editUser.status} onValueChange={v => handleEditChange('status', v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="paid_not_onboarded">Paid, Account Not Created</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Role</label>
-                  <Select value={editUser.is_admin ? 'admin' : 'user'} onValueChange={v => handleEditChange('is_admin', v === 'admin')}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          
+          {selectedUser && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Side - User Info & Actions */}
+              <div className="space-y-6">
+                {/* User Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="w-5 h-5" />
+                      User Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                        <span className="text-2xl font-bold text-white">
+                          {selectedUser.first_name ? selectedUser.first_name.charAt(0) : selectedUser.email.charAt(0)}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold">
+                          {selectedUser.first_name && selectedUser.last_name 
+                            ? `${selectedUser.first_name} ${selectedUser.last_name}` 
+                            : selectedUser.first_name || selectedUser.last_name || 'N/A'
+                          }
+                        </h3>
+                        <p className="text-gray-600">{selectedUser.email}</p>
+                        <div className="flex gap-2 mt-2">
+                          <Badge variant={selectedUser.is_admin ? "default" : "secondary"}>
+                            {selectedUser.is_admin ? 'Admin' : 'User'}
+                          </Badge>
+                          {selectedUser.founding_member && (
+                            <Badge variant="outline" className="border-yellow-300 text-yellow-700">
+                              <Crown className="w-3 h-3 mr-1" />
+                              Founding Member
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Phone</label>
+                        <p className="text-sm">{selectedUser.phone || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Company</label>
+                        <p className="text-sm">{selectedUser.company || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Job Title</label>
+                        <p className="text-sm">{selectedUser.job_title || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Status</label>
+                        <div className="flex items-center gap-1">
+                          {getStatusDisplay(selectedUser).icon}
+                          <span className={`text-sm ${getStatusDisplay(selectedUser).color}`}>
+                            {getStatusDisplay(selectedUser).text}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Joined</label>
+                        <p className="text-sm">
+                          {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Last Sync</label>
+                        <p className="text-sm">
+                          {selectedUser.last_sync_at ? new Date(selectedUser.last_sync_at).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Action Buttons */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="w-5 h-5" />
+                      Actions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button 
+                      onClick={() => sendWelcomeEmail(selectedUser.email, selectedUser.first_name || 'there')}
+                      disabled={loadingActions}
+                      className="w-full justify-start"
+                      variant="outline"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {loadingActions ? 'Sending...' : 'Resend Welcome Email'}
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => sendPasswordReset(selectedUser.email)}
+                      disabled={loadingActions}
+                      className="w-full justify-start"
+                      variant="outline"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      {loadingActions ? 'Sending...' : 'Reset Password'}
+                    </Button>
+
+                    {selectedUser.stripe_customer_id && (
+                      <Button 
+                        onClick={() => window.open(`https://dashboard.stripe.com/customers/${selectedUser.stripe_customer_id}`, '_blank')}
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        View in Stripe
+                      </Button>
+                    )}
+
+                    <Button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedUser.email);
+                        toast.success('Email copied to clipboard');
+                      }}
+                      className="w-full justify-start"
+                      variant="outline"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Email
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Side - Payment History & Stripe Info */}
+              <div className="space-y-6">
+                {/* Stripe Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5" />
+                      Stripe Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Customer ID</label>
+                        <p className="text-sm font-mono text-gray-800">
+                          {selectedUser.stripe_customer_id || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Subscription ID</label>
+                        <p className="text-sm font-mono text-gray-800">
+                          {selectedUser.stripe_subscription_id || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Current Plan</label>
+                        <p className="text-sm">
+                          {selectedUser.current_plan_id ? getPlanById(selectedUser.current_plan_id)?.name || 'N/A' : 'Free'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Subscription Status</label>
+                        <Badge 
+                          variant={selectedUser.subscription_status === 'active' ? 'default' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {selectedUser.subscription_status || 'N/A'}
+                        </Badge>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Period End</label>
+                        <p className="text-sm">
+                          {selectedUser.current_period_end 
+                            ? new Date(selectedUser.current_period_end).toLocaleDateString() 
+                            : 'N/A'
+                          }
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Sync Status</label>
+                        <div className="flex items-center gap-1">
+                          {selectedUser.last_sync_at ? (
+                            <CheckCircle className="w-3 h-3 text-green-600" />
+                          ) : (
+                            <XCircle className="w-3 h-3 text-red-600" />
+                          )}
+                          <span className="text-sm">
+                            {selectedUser.last_sync_at ? 'Synced' : 'Not Synced'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payment History */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <DollarSign className="w-5 h-5" />
+                      Payment History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingTransactions ? (
+                      <div className="flex items-center justify-center py-8">
+                        <RefreshCw className="w-5 h-5 animate-spin mr-2" />
+                        Loading transactions...
+                      </div>
+                    ) : userTransactions.length > 0 ? (
+                      <div className="space-y-3">
+                        {userTransactions.map((transaction) => (
+                          <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div>
+                              <p className="font-medium">{transaction.description || 'Payment'}</p>
+                              <p className="text-sm text-gray-600">
+                                {new Date(transaction.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">{formatPrice(transaction.amount)}</p>
+                              <Badge 
+                                variant={transaction.status === 'succeeded' ? 'default' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {transaction.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <DollarSign className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p>No payment history available</p>
+                        <p className="text-sm">Transactions will appear here once payments are processed</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </div>
-          ) : (
-            <div>Loading...</div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowEditModal(false); setSelectedUserId(null); }}>Cancel</Button>
-            <Button onClick={handleSaveEdit} disabled={!editUser}>Save</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
