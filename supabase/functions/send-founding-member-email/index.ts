@@ -1,27 +1,55 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
-      },
-    })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   console.log('👑 Founding member email function called')
 
   try {
-    const { email, firstName, lastName, sessionId } = await req.json()
+    const { email, firstName, lastName } = await req.json()
     
     console.log('Sending founding member email to:', email, 'Name:', firstName)
 
-    // Create password setup link - use production domain
-    const passwordSetupUrl = `https://www.uselinky.app/setup-password?email=${encodeURIComponent(email)}&session=${sessionId}`
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables')
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Generate password setup link using Supabase Auth
+    const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: email,
+      options: {
+        redirectTo: 'https://www.uselinky.app/setup-password'
+      }
+    })
+
+    if (resetError) {
+      console.error('Failed to generate reset link:', resetError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate reset link' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const passwordSetupUrl = resetData.properties.action_link
 
     // Use direct fetch to Resend API (same as working welcome email function)
     const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -99,12 +127,11 @@ serve(async (req) => {
             }
             
             .header { 
-              background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); 
+              background: linear-gradient(135deg, #1f2937 0%, #374151 100%); 
               padding: 50px 30px; 
               text-align: center; 
-              color: #1f2937;
+              color: white;
               position: relative;
-              overflow: hidden;
             }
             
             .logo { 
@@ -114,88 +141,66 @@ serve(async (req) => {
               display: flex;
               align-items: center;
               justify-content: center;
-              gap: 12px;
-              position: relative;
-              z-index: 2;
+              gap: 15px;
             }
             
             .logo-icon {
-              background: #1f2937;
-              color: #fbbf24;
+              background: #fbbf24;
+              color: #1f2937;
               padding: 12px 16px;
               border-radius: 12px;
               font-size: 28px;
-              animation: bounce 2s ease-in-out infinite;
+              animation: sparkle 2s ease-in-out infinite;
+            }
+            
+            .subtitle { 
+              font-size: 18px; 
+              opacity: 0.9; 
+              margin: 0;
+              font-weight: 500;
             }
             
             .content { 
               padding: 50px 30px; 
             }
             
-            .welcome-text { 
-              font-size: 32px; 
-              font-weight: 700; 
-              color: #1f2937; 
-              margin-bottom: 25px;
+            .welcome-text {
+              font-size: 32px;
+              font-weight: 800;
+              color: #1f2937;
+              margin-bottom: 30px;
               text-align: center;
-              background: linear-gradient(135deg, #fbbf24, #f59e0b);
-              -webkit-background-clip: text;
-              -webkit-text-fill-color: transparent;
-              background-clip: text;
+              animation: bounce 2s ease-in-out infinite;
             }
             
             .celebration-box {
               background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-              padding: 30px;
+              border: 3px solid #fbbf24;
               border-radius: 16px;
-              margin: 40px 0;
-              border: 3px solid #fbbf24;
+              padding: 25px;
+              margin: 30px 0;
               text-align: center;
-              position: relative;
+              box-shadow: 0 8px 25px rgba(251, 191, 36, 0.3);
             }
             
-            .celebration-box::before {
-              content: '🎉';
-              position: absolute;
-              top: -15px;
-              left: 50%;
-              transform: translateX(-50%);
-              font-size: 30px;
-              background: white;
-              padding: 5px 15px;
-              border-radius: 20px;
-              border: 3px solid #fbbf24;
-            }
-            
-            .benefits { 
-              background: #f8fafc; 
-              padding: 30px; 
-              border-radius: 16px; 
+            .benefits {
               margin: 40px 0;
-              border-left: 5px solid #fbbf24;
             }
             
-            .benefit { 
-              display: flex; 
-              align-items: center; 
+            .benefit {
+              display: flex;
+              align-items: flex-start;
+              gap: 15px;
               margin-bottom: 20px;
-              font-size: 16px;
-              color: #374151;
-              padding: 15px;
-              background: white;
+              padding: 20px;
+              background: #f8fafc;
               border-radius: 12px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+              border-left: 4px solid #3b82f6;
             }
             
-            .benefit-icon { 
-              color: #d97706; 
-              margin-right: 15px; 
+            .benefit-icon {
               font-size: 24px;
-              background: #fef3c7;
-              padding: 10px;
-              border-radius: 50%;
-              min-width: 44px;
-              text-align: center;
+              flex-shrink: 0;
             }
             
             .cta-section {
@@ -298,87 +303,86 @@ serve(async (req) => {
                   <span class="benefit-icon">🎯</span>
                   <div>
                     <strong>3 Months of Full MVP Features</strong><br>
-                    <span style="color: #6b7280; font-size: 14px;">Experience everything Linky has to offer!</span>
+                    <span style="color: #6b7280;">Access to all premium features including AI lead scoring, automated outreach, and advanced analytics.</span>
                   </div>
                 </div>
                 
                 <div class="benefit">
-                  <span class="benefit-icon">🤖</span>
+                  <span class="benefit-icon">💰</span>
                   <div>
-                    <strong>Unlimited AI-Powered Lead Monitoring</strong><br>
-                    <span style="color: #6b7280; font-size: 14px;">Let our AI find your perfect prospects!</span>
+                    <strong>Special Founding Member Pricing</strong><br>
+                    <span style="color: #6b7280;">Just $25 for 3 months - that's over 80% off our regular pricing!</span>
                   </div>
                 </div>
                 
                 <div class="benefit">
-                  <span class="benefit-icon">📊</span>
+                  <span class="benefit-icon">🚀</span>
                   <div>
-                    <strong>Real-time Analytics & Scoring</strong><br>
-                    <span style="color: #6b7280; font-size: 14px;">Know exactly which leads to pursue!</span>
-                  </div>
-                </div>
-                
-                <div class="benefit">
-                  <span class="benefit-icon">🗳️</span>
-                  <div>
-                    <strong>Feature Voting Rights</strong><br>
-                    <span style="color: #6b7280; font-size: 14px;">Help us build the features you need!</span>
+                    <strong>Early Access to New Features</strong><br>
+                    <span style="color: #6b7280;">Be the first to try cutting-edge AI features and provide feedback that shapes our roadmap.</span>
                   </div>
                 </div>
                 
                 <div class="benefit">
                   <span class="benefit-icon">👥</span>
                   <div>
-                    <strong>Private Community Access</strong><br>
-                    <span style="color: #6b7280; font-size: 14px;">Connect with other founding members!</span>
+                    <strong>Exclusive Founding Member Community</strong><br>
+                    <span style="color: #6b7280;">Join our private Discord/Slack for direct access to the team and fellow founding members.</span>
+                  </div>
+                </div>
+                
+                <div class="benefit">
+                  <span class="benefit-icon">🎁</span>
+                  <div>
+                    <strong>Lifetime Founding Member Badge</strong><br>
+                    <span style="color: #6b7280;">Show off your status as one of the original visionaries who believed in Linky from day one.</span>
                   </div>
                 </div>
               </div>
               
               <div class="cta-section">
-                <h3 style="margin: 0 0 20px 0; font-size: 24px; color: #fbbf24;">
-                  🎯 NEXT STEP: SET UP YOUR ACCOUNT
-                </h3>
+                <h3 style="margin: 0 0 20px 0; font-size: 24px;">🚀 Ready to Get Started?</h3>
                 <p style="margin: 0 0 25px 0; font-size: 16px; opacity: 0.9;">
-                  To access your exclusive founding member dashboard, you need to create your password:
+                  Click the button below to set up your password and access your exclusive founding member dashboard!
                 </p>
-                
                 <a href="${passwordSetupUrl}" class="cta-button">
-                  ✨ CREATE MY PASSWORD ✨
+                  🎯 SET UP MY ACCOUNT NOW
                 </a>
-                
-                <p style="font-size: 14px; opacity: 0.8; margin-top: 15px;">
-                  This secure link will take you to your password setup page.
+                <p style="margin: 20px 0 0 0; font-size: 14px; opacity: 0.8;">
+                  This link will expire in 1 hour for your security.
                 </p>
               </div>
               
-              <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 12px; padding: 25px; margin: 40px 0; text-align: center;">
-                <h4 style="margin: 0 0 15px 0; color: #92400e; font-size: 18px;">💎 FOUNDING MEMBER EXCLUSIVE</h4>
-                <p style="margin: 0; color: #92400e; font-size: 16px; line-height: 1.6;">
-                  <strong>Special Offer:</strong> As one of our first 40 founding members, you're getting our premium features at just <strong>$25 for 3 months</strong> (normally $75/month)! This exclusive pricing is only available to founding members.
+              <p style="font-size: 16px; color: #6b7280; margin-bottom: 25px; line-height: 1.7; text-align: center;">
+                <strong>What's Next?</strong><br>
+                Once you set up your password, you'll have immediate access to:<br>
+                • Your personalized dashboard<br>
+                • AI-powered lead identification tools<br>
+                • Automated outreach sequences<br>
+                • Real-time analytics and insights
+              </p>
+              
+              <div style="background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 25px; margin: 30px 0; text-align: center;">
+                <h4 style="margin: 0 0 15px 0; color: #0c4a6e; font-size: 18px;">🎉 Welcome to the Future of LinkedIn Lead Generation!</h4>
+                <p style="margin: 0; color: #0369a1; font-size: 16px; font-weight: 500;">
+                  You're now part of an exclusive group that will revolutionize how businesses connect on LinkedIn.
                 </p>
               </div>
-              
-              <p style="font-size: 18px; color: #6b7280; text-align: center;">
-                We can't wait to see you inside the platform, <strong>${firstName}</strong>! You're going to love what we've built for you.
-              </p>
-              
-              <p style="font-size: 20px; font-weight: 600; color: #1f2937; text-align: center;">
-                Welcome to the Linky family! 🚀
-              </p>
             </div>
             
             <div class="footer">
-              <p style="margin: 25px 0 15px 0;">
+              <div style="margin: 20px 0;">
+                <a href="https://twitter.com/linky" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Twitter</a>
+                <a href="https://linkedin.com/company/linky" style="color: #6b7280; text-decoration: none; margin: 0 10px;">LinkedIn</a>
+                <a href="https://linky.com" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Website</a>
+              </div>
+              
+              <p style="margin: 20px 0;">
                 <strong>The Linky Team</strong><br>
-                Building the future of LinkedIn lead generation
+                Building the future of LinkedIn lead generation 🚀
               </p>
               
-              <p style="font-size: 14px; color: #9ca3af; margin: 15px 0;">
-                P.S. - Keep an eye on your inbox for exclusive founding member updates and early access to new features!
-              </p>
-              
-              <div style="margin-top: 25px;">
+              <div style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
                 <p>
                   You received this email because you're a founding member of Linky.<br>
                   <a href="https://linky.com/unsubscribe?email=${encodeURIComponent(email)}" style="color: #9ca3af;">Unsubscribe</a> | 
@@ -390,48 +394,42 @@ serve(async (req) => {
         </body>
         </html>
         `,
-        replyTo: 'support@linky.com',
-      })
+      }),
     })
 
-    console.log('Resend API response status:', resendResponse.status)
-    
+    console.log('📧 Resend API response status:', resendResponse.status)
+
     if (!resendResponse.ok) {
       const errorText = await resendResponse.text()
-      console.error('Resend API error:', errorText)
+      console.error('❌ Resend API error:', errorText)
       throw new Error(`Resend API error: ${resendResponse.status} ${errorText}`)
     }
 
-    const data = await resendResponse.json()
-    console.log('Founding member email sent successfully:', data)
+    const emailResult = await resendResponse.json()
+    console.log('✅ Email sent successfully:', emailResult)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data,
-        message: `Founding member email sent to ${email}`
+        message: 'Founding member email sent successfully',
+        data: emailResult 
       }),
       { 
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        } 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
+
   } catch (error) {
-    console.error('Error sending founding member email:', error)
+    console.error('❌ Function error:', error)
     return new Response(
       JSON.stringify({ 
-        success: false,
-        error: error.message,
-        details: error.toString()
+        error: 'Internal server error', 
+        details: error.message 
       }),
       { 
         status: 500, 
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
   }
