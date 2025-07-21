@@ -48,19 +48,60 @@ serve(async (req) => {
       )
     }
 
+    // Ensure transactions table exists
+    console.log('🔧 Ensuring transactions table exists...')
+    const { error: tableError } = await supabase.rpc('exec_sql', {
+      sql: `
+        CREATE TABLE IF NOT EXISTS transactions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          stripe_payment_intent_id TEXT,
+          stripe_charge_id TEXT,
+          stripe_invoice_id TEXT,
+          amount INTEGER NOT NULL,
+          currency TEXT DEFAULT 'usd',
+          status TEXT NOT NULL CHECK (status IN (
+            'succeeded',
+            'pending',
+            'failed',
+            'canceled',
+            'refunded',
+            'partially_refunded'
+          )),
+          description TEXT,
+          receipt_url TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_transactions_stripe_payment_intent_id ON transactions(stripe_payment_intent_id);
+        CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
+        CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
+      `
+    })
+
+    if (tableError) {
+      console.error('❌ Error ensuring transactions table exists:', tableError)
+      // Continue anyway, the table might already exist
+    }
+
     // Get payment intents from Stripe
+    console.log('🔄 Fetching payment intents from Stripe...')
     const paymentIntents = await stripe.paymentIntents.list({
       customer: user.stripe_customer_id,
       limit: 50
     })
 
     // Get charges from Stripe
+    console.log('🔄 Fetching charges from Stripe...')
     const charges = await stripe.charges.list({
       customer: user.stripe_customer_id,
       limit: 50
     })
 
     // Get invoices from Stripe
+    console.log('🔄 Fetching invoices from Stripe...')
     const invoices = await stripe.invoices.list({
       customer: user.stripe_customer_id,
       limit: 50
@@ -120,6 +161,8 @@ serve(async (req) => {
       }
     }
 
+    console.log(`💾 Storing ${transactions.length} transactions to database...`)
+
     // Upsert transactions to database
     if (transactions.length > 0) {
       const { error: upsertError } = await supabase
@@ -132,17 +175,44 @@ serve(async (req) => {
       if (upsertError) {
         console.error('❌ Error upserting transactions:', upsertError)
         return new Response(
-          JSON.stringify({ error: 'Failed to sync transactions' }),
+          JSON.stringify({ error: 'Failed to sync transactions', details: upsertError }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
     }
 
     // Get payment methods
+    console.log('🔄 Fetching payment methods from Stripe...')
     const paymentMethods = await stripe.paymentMethods.list({
       customer: user.stripe_customer_id,
       type: 'card'
     })
+
+    // Ensure payment_methods table exists
+    const { error: pmTableError } = await supabase.rpc('exec_sql', {
+      sql: `
+        CREATE TABLE IF NOT EXISTS payment_methods (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          stripe_payment_method_id TEXT UNIQUE NOT NULL,
+          type TEXT NOT NULL CHECK (type IN ('card', 'bank_account')),
+          card_brand TEXT,
+          card_last4 TEXT,
+          card_exp_month INTEGER,
+          card_exp_year INTEGER,
+          is_default BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_payment_methods_user_id ON payment_methods(user_id);
+        CREATE INDEX IF NOT EXISTS idx_payment_methods_stripe_payment_method_id ON payment_methods(stripe_payment_method_id);
+      `
+    })
+
+    if (pmTableError) {
+      console.error('❌ Error ensuring payment_methods table exists:', pmTableError)
+    }
 
     // Upsert payment methods
     const paymentMethodRecords = paymentMethods.data.map(pm => ({
@@ -161,9 +231,9 @@ serve(async (req) => {
     if (paymentMethodRecords.length > 0) {
       const { error: pmError } = await supabase
         .from('payment_methods')
-        .upsert(paymentMethodRecords, { 
+        .upsert(paymentMethodRecords, {
           onConflict: 'stripe_payment_method_id',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false
         })
 
       if (pmError) {
@@ -190,7 +260,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Error in sync-payment-history:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
