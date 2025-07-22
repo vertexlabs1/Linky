@@ -1,16 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
-      },
-    })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   console.log('📧 Welcome email function called')
@@ -22,6 +21,54 @@ serve(async (req) => {
     const displayName = firstName || name || 'there'
     
     console.log('Sending welcome email to:', email, 'Name:', displayName, 'Source:', source)
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables')
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Generate password setup link using Supabase Auth
+    const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: email,
+      options: {
+        redirectTo: 'https://www.uselinky.app/setup-password'
+      }
+    })
+
+    if (resetError) {
+      console.error('Failed to generate reset link:', resetError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate reset link' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    let passwordSetupUrl = resetData.properties.action_link
+    
+    console.log('🔗 Original URL generated:', passwordSetupUrl)
+    
+    // Fix the URL if it's pointing to localhost (due to project site URL setting)
+    if (passwordSetupUrl.includes('localhost:3000')) {
+      passwordSetupUrl = passwordSetupUrl.replace('http://localhost:3000', 'https://www.uselinky.app')
+      console.log('✅ Fixed localhost:3000 to production:', passwordSetupUrl)
+    } else if (passwordSetupUrl.includes('localhost')) {
+      passwordSetupUrl = passwordSetupUrl.replace('http://localhost', 'https://www.uselinky.app')
+      console.log('✅ Fixed localhost to production:', passwordSetupUrl)
+    } else if (passwordSetupUrl.includes('127.0.0.1')) {
+      passwordSetupUrl = passwordSetupUrl.replace('http://127.0.0.1', 'https://www.uselinky.app')
+      console.log('✅ Fixed 127.0.0.1 to production:', passwordSetupUrl)
+    } else {
+      console.log('ℹ️ URL does not contain localhost, using as-is:', passwordSetupUrl)
+    }
 
     // Check for RESEND_API_KEY
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
@@ -41,7 +88,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'Linky Team <hello@uselinky.app>',
         to: [email],
-        subject: '🎉 Welcome to Linky - You\'re on the waitlist!',
+        subject: '🎉 Welcome to Linky - Set up your account!',
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
@@ -51,12 +98,18 @@ serve(async (req) => {
             <div style="background: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
               <p style="font-size: 18px; margin-bottom: 16px; color: #1e293b;">Hi ${displayName},</p>
               <p style="font-size: 16px; line-height: 1.6; color: #475569; margin-bottom: 16px;">
-                Thank you for joining the Linky waitlist! We're excited to have you on board as we build the future of LinkedIn lead generation.
+                Welcome to Linky! We're excited to have you on board as we build the future of LinkedIn lead generation.
               </p>
               <p style="font-size: 16px; line-height: 1.6; color: #475569; margin-bottom: 16px;">
                 🚀 You'll be among the first to know when we launch our AI-powered platform<br>
                 💎 Plus, you'll get exclusive early access and special pricing!
               </p>
+            </div>
+            
+            <div style="text-align: center; margin-bottom: 24px;">
+              <a href="${passwordSetupUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                Set Up Your Account
+              </a>
             </div>
             
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; text-align: center; margin-bottom: 24px;">
@@ -67,12 +120,6 @@ serve(async (req) => {
                 <li style="margin-bottom: 8px;">🤖 Automated personalized outreach</li>
                 <li>📈 Real-time analytics and conversion tracking</li>
               </ul>
-            </div>
-            
-            <div style="text-align: center; margin-bottom: 24px;">
-              <p style="font-size: 14px; color: #64748b;">
-                Stay tuned for updates - we'll be in touch soon with exciting news!
-              </p>
             </div>
             
             <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center;">
