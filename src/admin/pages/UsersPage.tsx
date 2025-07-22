@@ -115,6 +115,8 @@ export const UsersPage: React.FC = () => {
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
   const [loadingUserEdit, setLoadingUserEdit] = useState(false);
+  const [loadingStripeSync, setLoadingStripeSync] = useState(false);
+  const [loadingBillingEdit, setLoadingBillingEdit] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     first_name: '',
@@ -594,7 +596,7 @@ export const UsersPage: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      setLoadingActions(true);
+      setLoadingStripeSync(true);
       const { error } = await supabase
         .from('users')
         .update({
@@ -610,7 +612,7 @@ export const UsersPage: React.FC = () => {
       console.error('Error syncing user with Stripe:', error);
       toast.error('Failed to sync user with Stripe');
     } finally {
-      setLoadingActions(false);
+      setLoadingStripeSync(false);
     }
   };
 
