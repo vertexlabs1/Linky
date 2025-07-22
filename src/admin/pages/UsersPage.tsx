@@ -1397,10 +1397,10 @@ export const UsersPage: React.FC = () => {
                         <div className="flex gap-2 pt-4 border-t">
                           <Button
                             onClick={handleSaveBilling}
-                            disabled={loadingActions}
+                            disabled={loadingBillingEdit}
                             className="flex-1"
                           >
-                            {loadingActions ? 'Saving...' : 'Save Billing'}
+                            {loadingBillingEdit ? 'Saving...' : 'Save Billing'}
                           </Button>
                           <Button
                             onClick={cancelBillingEdit}
@@ -1452,11 +1452,11 @@ export const UsersPage: React.FC = () => {
                       <div className="pt-4 border-t space-y-2">
                         <Button
                           onClick={handleSyncWithStripe}
-                          disabled={loadingActions}
+                          disabled={loadingStripeSync}
                           variant="outline"
                           className="w-full"
                         >
-                          {loadingActions ? 'Syncing...' : 'Sync with Stripe'}
+                          {loadingStripeSync ? 'Syncing...' : 'Sync with Stripe'}
                         </Button>
                       </div>
                     )}
