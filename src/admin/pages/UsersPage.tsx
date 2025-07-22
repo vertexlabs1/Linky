@@ -643,7 +643,7 @@ export const UsersPage: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      setLoadingActions(true);
+      setLoadingBillingEdit(true);
       console.log('🔄 Updating billing for user:', selectedUser.email);
 
       // Prepare billing data
@@ -744,7 +744,7 @@ export const UsersPage: React.FC = () => {
       console.error('❌ Error updating billing:', error);
       toast.error('Failed to update billing information');
     } finally {
-      setLoadingActions(false);
+      setLoadingBillingEdit(false);
     }
   };
 
@@ -1237,10 +1237,10 @@ export const UsersPage: React.FC = () => {
                         <div className="flex gap-2">
                           <Button
                             onClick={handleSaveUser}
-                            disabled={loadingActions}
+                            disabled={loadingUserEdit}
                             className="flex-1"
                           >
-                            {loadingActions ? 'Saving...' : 'Save Changes'}
+                            {loadingUserEdit ? 'Saving...' : 'Save Changes'}
                           </Button>
                           <Button
                             onClick={cancelEditing}
