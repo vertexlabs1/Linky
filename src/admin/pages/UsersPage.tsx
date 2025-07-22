@@ -1239,7 +1239,7 @@ export const UsersPage: React.FC = () => {
                   <CardContent className="space-y-4">
                     {isEditing ? (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="text-sm font-medium">First Name</label>
                             <Input
@@ -1254,7 +1254,7 @@ export const UsersPage: React.FC = () => {
                               onChange={(e) => setEditForm({...editForm, last_name: e.target.value})}
                             />
                           </div>
-                          <div>
+                          <div className="sm:col-span-2">
                             <label className="text-sm font-medium">Email</label>
                             <Input
                               value={editForm.email}
@@ -1275,7 +1275,7 @@ export const UsersPage: React.FC = () => {
                               onChange={(e) => setEditForm({...editForm, company: e.target.value})}
                             />
                           </div>
-                          <div>
+                          <div className="sm:col-span-2">
                             <label className="text-sm font-medium">Job Title</label>
                             <Input
                               value={editForm.job_title}
@@ -1339,30 +1339,30 @@ export const UsersPage: React.FC = () => {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="text-sm font-medium text-gray-600">First Name</label>
-                            <p className="text-sm">{selectedUser.first_name || 'Not provided'}</p>
+                            <p className="text-sm break-words">{selectedUser.first_name || 'Not provided'}</p>
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-600">Last Name</label>
-                            <p className="text-sm">{selectedUser.last_name || 'Not provided'}</p>
+                            <p className="text-sm break-words">{selectedUser.last_name || 'Not provided'}</p>
                           </div>
-                          <div>
+                          <div className="sm:col-span-2">
                             <label className="text-sm font-medium text-gray-600">Email</label>
-                            <p className="text-sm">{selectedUser.email}</p>
+                            <p className="text-sm break-all font-mono">{selectedUser.email}</p>
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-600">Phone</label>
-                            <p className="text-sm">{selectedUser.phone || 'Not provided'}</p>
+                            <p className="text-sm break-words">{selectedUser.phone || 'Not provided'}</p>
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-600">Company</label>
-                            <p className="text-sm">{selectedUser.company || 'Not provided'}</p>
+                            <p className="text-sm break-words">{selectedUser.company || 'Not provided'}</p>
                           </div>
-                          <div>
+                          <div className="sm:col-span-2">
                             <label className="text-sm font-medium text-gray-600">Job Title</label>
-                            <p className="text-sm">{selectedUser.job_title || 'Not provided'}</p>
+                            <p className="text-sm break-words">{selectedUser.job_title || 'Not provided'}</p>
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-600">Status</label>
@@ -1376,7 +1376,7 @@ export const UsersPage: React.FC = () => {
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-4 pt-4 border-t">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-4 border-t">
                           <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
@@ -1443,7 +1443,7 @@ export const UsersPage: React.FC = () => {
                         {/* Billing Form */}
                         {!billingSameAsAccount && (
                           <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div>
                                 <label className="text-sm font-medium">Billing Name</label>
                                 <Input
@@ -1452,7 +1452,7 @@ export const UsersPage: React.FC = () => {
                                   placeholder="Full name"
                                 />
                               </div>
-                              <div>
+                              <div className="sm:col-span-2">
                                 <label className="text-sm font-medium">Billing Email</label>
                                 <Input
                                   value={billingForm.email}
@@ -1477,7 +1477,7 @@ export const UsersPage: React.FC = () => {
                                 placeholder="123 Main St"
                               />
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               <Input
                                 value={billingForm.city}
                                 onChange={(e) => setBillingForm({...billingForm, city: e.target.value})}
@@ -1517,22 +1517,22 @@ export const UsersPage: React.FC = () => {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="text-sm font-medium text-gray-600">Billing Name</label>
-                            <p className="text-sm">
+                            <p className="text-sm break-words">
                               {selectedUser.billing_name || `${selectedUser.first_name} ${selectedUser.last_name}`}
                             </p>
                           </div>
-                          <div>
+                          <div className="sm:col-span-2">
                             <label className="text-sm font-medium text-gray-600">Billing Email</label>
-                            <p className="text-sm">
+                            <p className="text-sm break-all font-mono">
                               {selectedUser.billing_email || selectedUser.email}
                             </p>
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-600">Billing Phone</label>
-                            <p className="text-sm">
+                            <p className="text-sm break-words">
                               {selectedUser.billing_phone || selectedUser.phone || 'Not provided'}
                             </p>
                           </div>
@@ -1636,16 +1636,16 @@ export const UsersPage: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
                         <label className="text-sm font-medium text-gray-600">Customer ID</label>
-                        <p className="text-sm font-mono text-xs">
+                        <p className="text-sm font-mono text-xs break-all bg-gray-50 p-2 rounded border">
                           {selectedUser.stripe_customer_id || 'Not connected'}
                         </p>
                       </div>
-                      <div>
+                      <div className="sm:col-span-2">
                         <label className="text-sm font-medium text-gray-600">Subscription ID</label>
-                        <p className="text-sm font-mono text-xs">
+                        <p className="text-sm font-mono text-xs break-all bg-gray-50 p-2 rounded border">
                           {selectedUser.stripe_subscription_id || 'Not connected'}
                         </p>
                       </div>
@@ -1672,11 +1672,11 @@ export const UsersPage: React.FC = () => {
                                 </p>
                               )}
                             </div>
-                                                      ) : (
-                              <p className="text-sm text-gray-600">
-                                <span className="font-medium">{getPlanById(selectedUser.current_plan_id || selectedUser.subscription_plan)?.name || selectedUser.subscription_plan}</span>
-                              </p>
-                            )}
+                          ) : (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">{getPlanById(selectedUser.current_plan_id || selectedUser.subscription_plan)?.name || selectedUser.subscription_plan}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div>
@@ -1721,17 +1721,17 @@ export const UsersPage: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium text-gray-600">Current Promo</label>
                         <div className="space-y-2">
                           {selectedUser.promo_active ? (
                             <div>
-                              <p className="text-sm font-medium">
+                              <p className="text-sm font-medium break-words">
                                 {getPromoDiscount(selectedUser.promo_type || '')}
                               </p>
                               {selectedUser.promo_expiration_date && (
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-gray-500 break-words">
                                   Expires: {new Date(selectedUser.promo_expiration_date).toLocaleDateString()}
                                   ({getDaysRemaining(selectedUser.promo_expiration_date)} days left)
                                 </p>
