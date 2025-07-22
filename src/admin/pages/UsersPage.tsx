@@ -53,6 +53,11 @@ interface User {
   current_plan_id?: string;
   current_period_end?: string;
   founding_member?: boolean;
+  founding_member_purchased_at?: string;
+  founding_member_transition_date?: string;
+  founding_member_transitioned_at?: string;
+  founding_member_original_plan_id?: string;
+  founding_member_transition_plan_id?: string;
   is_admin?: boolean;
   status: string;
   last_sync_at?: string;
@@ -608,9 +613,44 @@ export const UsersPage: React.FC = () => {
 
       toast.success('User synced with Stripe successfully');
       fetchUsers(); // Refresh the users list to show the updated last_sync_at
-    } catch (error) {
-      console.error('Error syncing user with Stripe:', error);
-      toast.error('Failed to sync user with Stripe');
+    } catch (error: any) {
+      console.error('Error syncing with Stripe:', error);
+      toast.error('Failed to sync with Stripe');
+    } finally {
+      setLoadingStripeSync(false);
+    }
+  };
+
+  const handleManualTransition = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setLoadingStripeSync(true);
+      
+      // Call the transition function
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-founding-member-transitions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          userId: selectedUser.id
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Transition failed: ${errorText}`);
+      }
+
+      const result = await response.json();
+      toast.success(`Transition completed: ${result.successful} successful, ${result.failed} failed`);
+      fetchUsers(); // Refresh the users list
+    } catch (error: any) {
+      console.error('Error triggering transition:', error);
+      toast.error('Failed to trigger transition');
     } finally {
       setLoadingStripeSync(false);
     }
@@ -1489,10 +1529,43 @@ export const UsersPage: React.FC = () => {
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-600">Current Plan</label>
-                        <p className="text-sm">
-                          {selectedUser.founding_member ? 'Founding Member ($25/3mo)' : 
-                           selectedUser.current_plan_id ? getPlanById(selectedUser.current_plan_id)?.name || 'N/A' : 'Free'}
-                        </p>
+                        <div className="space-y-1">
+                          {selectedUser.founding_member ? (
+                            <div>
+                              {selectedUser.founding_member_transitioned_at ? (
+                                <p className="text-sm text-gray-600">
+                                  <span className="font-medium">Prospector ($75/month)</span>
+                                  <br />
+                                  <span className="text-xs">Transitioned from Founding Member</span>
+                                </p>
+                              ) : (
+                                <div>
+                                  <p className="text-sm font-medium text-yellow-700">
+                                    Founding Member ($25/3mo)
+                                  </p>
+                                  {selectedUser.founding_member_transition_date && (
+                                    <p className="text-xs text-gray-500">
+                                      Expires: {new Date(selectedUser.founding_member_transition_date).toLocaleDateString()}
+                                      {(() => {
+                                        const daysRemaining = Math.ceil((new Date(selectedUser.founding_member_transition_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                                        if (daysRemaining > 0) {
+                                          return ` (${daysRemaining} days left)`;
+                                        } else if (daysRemaining <= 0) {
+                                          return ' (Expired - needs transition)';
+                                        }
+                                        return '';
+                                      })()}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm">
+                              {selectedUser.current_plan_id ? getPlanById(selectedUser.current_plan_id)?.name || 'N/A' : 'Free'}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-600">Subscription Status</label>
@@ -1700,6 +1773,20 @@ export const UsersPage: React.FC = () => {
                       <Key className="w-4 h-4 mr-2" />
                       {loadingPasswordReset ? 'Sending...' : 'Reset Password'}
                     </Button>
+
+                    {/* Founding Member Transition Button */}
+                    {selectedUser.founding_member && !selectedUser.founding_member_transitioned_at && (
+                      <Button 
+                        onClick={handleManualTransition}
+                        disabled={loadingStripeSync}
+                        className="w-full justify-start"
+                        variant="outline"
+                        title="Manually trigger transition to $75/month plan"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        {loadingStripeSync ? 'Transitioning...' : 'Transition to Prospector'}
+                      </Button>
+                    )}
 
                     {selectedUser.stripe_customer_id && (
                       <Button 
