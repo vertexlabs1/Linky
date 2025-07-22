@@ -3,7 +3,7 @@ import { Route } from 'react-router-dom';
 import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import { UsersPage } from './pages/UsersPage';
-import HealthPage from './pages/HealthPage';
+import { HealthPage } from './pages/HealthPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import NewsletterPage from './pages/NewsletterPage';
 import PromotionsPage from './pages/PromotionsPage';

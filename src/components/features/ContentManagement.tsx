@@ -14,7 +14,15 @@ import {
   Star,
   ChevronRight,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  MessageSquare,
+  ThumbsUp,
+  ThumbsDown,
+  Image,
+  FileText,
+  BarChart3,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +30,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface Feed {
   id: string;
@@ -39,10 +49,13 @@ interface FeedItem {
   title: string;
   url: string;
   content: string;
+  fullContent: string;
   publishedAt: string;
   feedTitle: string;
   imageUrl?: string;
   read: boolean;
+  author?: string;
+  tags?: string[];
 }
 
 interface Draft {
@@ -55,10 +68,23 @@ interface Draft {
   scheduledFor?: string;
 }
 
+interface UserFeedback {
+  id: string;
+  feedItemId: string;
+  thoughts: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  suggestedPostType: 'text' | 'carousel' | 'poll';
+  createdAt: string;
+}
+
 const ContentManagement = () => {
   const [activeTab, setActiveTab] = useState('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedArticle, setSelectedArticle] = useState<FeedItem | null>(null);
+  const [userFeedback, setUserFeedback] = useState('');
+  const [suggestedPostType, setSuggestedPostType] = useState<'text' | 'carousel' | 'poll'>('text');
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
 
   // Mock data for demonstration
   const categories = [
@@ -108,20 +134,44 @@ const ContentManagement = () => {
       title: 'The Future of AI in Business: 2024 Trends',
       url: 'https://example.com/ai-trends-2024',
       content: 'Artificial Intelligence continues to revolutionize how businesses operate...',
+      fullContent: `Artificial Intelligence continues to revolutionize how businesses operate, with 2024 bringing unprecedented changes to the corporate landscape. From automated customer service to predictive analytics, AI is no longer a futuristic concept but a present-day reality that's reshaping industries across the board.
+
+Key trends include:
+- Generative AI for content creation and marketing
+- AI-powered decision making in executive suites
+- Automated workflow optimization
+- Enhanced cybersecurity through machine learning
+- Personalized customer experiences at scale
+
+Companies that embrace these technologies are seeing 40% increases in productivity and 30% reductions in operational costs. However, the human element remains crucial - AI should augment human capabilities, not replace them entirely.`,
       publishedAt: '2 hours ago',
       feedTitle: 'TechCrunch',
-      imageUrl: 'https://via.placeholder.com/300x200',
+      imageUrl: 'https://via.placeholder.com/800x400',
       read: false,
+      author: 'Sarah Johnson',
+      tags: ['AI', 'Business', 'Technology', 'Innovation']
     },
     {
       id: '2',
-      title: 'Building Effective Remote Teams',
+      title: 'Building Effective Remote Teams: Lessons from 2024',
       url: 'https://example.com/remote-teams',
       content: 'As remote work becomes the new normal, leaders must adapt...',
+      fullContent: `As remote work becomes the new normal, leaders must adapt their management strategies to maintain productivity and team cohesion. The traditional office model has been permanently altered, and successful organizations are those that have embraced the flexibility and opportunities that remote work provides.
+
+Key strategies include:
+- Regular virtual team building activities
+- Clear communication protocols and expectations
+- Results-oriented performance metrics
+- Flexible scheduling that respects time zones
+- Investment in collaboration tools and technology
+
+The most successful remote teams focus on outcomes rather than hours worked, and prioritize trust and autonomy over micromanagement. This shift has led to higher employee satisfaction and retention rates.`,
       publishedAt: '4 hours ago',
       feedTitle: 'Harvard Business Review',
-      imageUrl: 'https://via.placeholder.com/300x200',
+      imageUrl: 'https://via.placeholder.com/800x400',
       read: true,
+      author: 'Dr. Michael Chen',
+      tags: ['Remote Work', 'Leadership', 'Management', 'Productivity']
     },
   ];
 
@@ -150,6 +200,26 @@ const ContentManagement = () => {
     const matchesCategory = selectedCategory === 'all' || feed.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const handleArticleClick = (article: FeedItem) => {
+    setSelectedArticle(article);
+    setIsFeedbackDialogOpen(true);
+  };
+
+  const handleFeedbackSubmit = () => {
+    // Here we would save the feedback and generate post suggestions
+    console.log('Feedback submitted:', { userFeedback, suggestedPostType, article: selectedArticle });
+    setUserFeedback('');
+    setIsFeedbackDialogOpen(false);
+    setSelectedArticle(null);
+  };
+
+  const getPostTypeSuggestion = (content: string) => {
+    // Simple logic to suggest post type based on content
+    if (content.includes('trends') || content.includes('statistics')) return 'carousel';
+    if (content.includes('question') || content.includes('poll')) return 'poll';
+    return 'text';
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -279,10 +349,13 @@ const ContentManagement = () => {
           </div>
         </TabsContent>
 
-        {/* Content Review Tab */}
+        {/* Content Review Tab - REDESIGNED */}
         <TabsContent value="content" className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Latest Content</h2>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Your Content Feed</h2>
+              <p className="text-gray-600 text-sm">Read articles and share your thoughts</p>
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm">
                 <Filter className="w-4 h-4 mr-2" />
@@ -296,41 +369,61 @@ const ContentManagement = () => {
 
           <div className="space-y-4">
             {mockFeedItems.map((item) => (
-              <Card key={item.id} className={`hover:shadow-md transition-shadow ${!item.read ? 'border-l-4 border-l-primary' : ''}`}>
+              <Card 
+                key={item.id} 
+                className={`hover:shadow-lg transition-all duration-200 cursor-pointer ${
+                  !item.read ? 'border-l-4 border-l-primary bg-blue-50/50' : ''
+                }`}
+                onClick={() => handleArticleClick(item)}
+              >
                 <CardContent className="p-6">
                   <div className="flex gap-4">
                     {item.imageUrl && (
                       <img 
                         src={item.imageUrl} 
                         alt={item.title}
-                        className="w-24 h-16 object-cover rounded-lg flex-shrink-0"
+                        className="w-32 h-24 object-cover rounded-lg flex-shrink-0"
                       />
                     )}
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-2">{item.title}</h3>
+                          <h3 className="font-semibold text-lg mb-2 text-gray-900 hover:text-primary transition-colors">
+                            {item.title}
+                          </h3>
                           <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                             {item.content}
                           </p>
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
                             <span className="flex items-center gap-1">
                               <Rss className="w-4 h-4" />
                               {item.feedTitle}
                             </span>
+                            <span>•</span>
+                            <span>{item.author}</span>
+                            <span>•</span>
                             <span>{item.publishedAt}</span>
                             {!item.read && (
                               <Badge variant="default" className="text-xs">New</Badge>
                             )}
                           </div>
+                          {item.tags && (
+                            <div className="flex gap-2 mb-3">
+                              {item.tags.slice(0, 3).map((tag) => (
+                                <Badge key={tag} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex flex-col gap-2 ml-4">
+                          <Button size="sm" variant="outline" className="flex items-center gap-2">
+                            <MessageSquare className="w-4 h-4" />
+                            Add Thoughts
+                          </Button>
                           <Button size="sm" variant="outline">
                             <ExternalLink className="w-4 h-4" />
-                          </Button>
-                          <Button size="sm">
-                            <Edit3 className="w-4 h-4 mr-2" />
-                            Create Draft
                           </Button>
                         </div>
                       </div>
@@ -402,6 +495,124 @@ const ContentManagement = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Article Feedback Dialog */}
+      <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5" />
+              {selectedArticle?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Read the article and share your thoughts
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedArticle && (
+            <div className="space-y-6">
+              {/* Article Content */}
+              <div className="prose max-w-none">
+                {selectedArticle.imageUrl && (
+                  <img 
+                    src={selectedArticle.imageUrl} 
+                    alt={selectedArticle.title}
+                    className="w-full h-64 object-cover rounded-lg mb-4"
+                  />
+                )}
+                <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                  <span>By {selectedArticle.author}</span>
+                  <span>•</span>
+                  <span>{selectedArticle.publishedAt}</span>
+                  <span>•</span>
+                  <span>{selectedArticle.feedTitle}</span>
+                </div>
+                <div className="text-gray-700 leading-relaxed">
+                  {selectedArticle.fullContent.split('\n\n').map((paragraph, index) => (
+                    <p key={index} className="mb-4">{paragraph}</p>
+                  ))}
+                </div>
+              </div>
+
+              {/* Feedback Section */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Your Thoughts & Feedback
+                </h3>
+                <Textarea
+                  placeholder="Share your thoughts on this article... What resonated with you? What questions do you have? What would you add or change?"
+                  value={userFeedback}
+                  onChange={(e) => setUserFeedback(e.target.value)}
+                  className="min-h-[120px] mb-4"
+                />
+                
+                {/* Post Type Suggestions */}
+                <div className="mb-6">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Turn This Into a Post
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Card 
+                      className={`cursor-pointer transition-all ${
+                        suggestedPostType === 'text' ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => setSuggestedPostType('text')}
+                    >
+                      <CardContent className="p-4 text-center">
+                        <FileText className="w-8 h-8 mx-auto mb-2 text-blue-600" />
+                        <p className="font-medium">Text Post</p>
+                        <p className="text-sm text-gray-600">Share your insights</p>
+                      </CardContent>
+                    </Card>
+                    <Card 
+                      className={`cursor-pointer transition-all ${
+                        suggestedPostType === 'carousel' ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => setSuggestedPostType('carousel')}
+                    >
+                      <CardContent className="p-4 text-center">
+                        <Image className="w-8 h-8 mx-auto mb-2 text-green-600" />
+                        <p className="font-medium">Carousel</p>
+                        <p className="text-sm text-gray-600">Multiple slides with images</p>
+                      </CardContent>
+                    </Card>
+                    <Card 
+                      className={`cursor-pointer transition-all ${
+                        suggestedPostType === 'poll' ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => setSuggestedPostType('poll')}
+                    >
+                      <CardContent className="p-4 text-center">
+                        <BarChart3 className="w-8 h-8 mx-auto mb-2 text-purple-600" />
+                        <p className="font-medium">Poll</p>
+                        <p className="text-sm text-gray-600">Engage your audience</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={handleFeedbackSubmit}
+                    className="flex items-center gap-2"
+                    disabled={!userFeedback.trim()}
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Create Post
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsFeedbackDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
