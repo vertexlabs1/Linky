@@ -112,7 +112,8 @@ export const UsersPage: React.FC = () => {
   const [userTransactions, setUserTransactions] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [userPaymentMethods, setUserPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [loadingActions, setLoadingActions] = useState(false);
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     first_name: '',
@@ -401,7 +402,7 @@ export const UsersPage: React.FC = () => {
 
   const sendWelcomeEmail = async (email: string, firstName: string, isFoundingMember: boolean = false) => {
     try {
-      setLoadingActions(true);
+      setLoadingEmail(true);
       
       // Choose the appropriate endpoint based on user type
       const endpoint = isFoundingMember ? 'send-founding-member-email' : 'send-welcome-email';
@@ -431,13 +432,13 @@ export const UsersPage: React.FC = () => {
       console.error('Error sending email:', error);
       toast.error(`Failed to send email: ${error.message}`);
     } finally {
-      setLoadingActions(false);
+      setLoadingEmail(false);
     }
   };
 
   const sendPasswordReset = async (email: string) => {
     try {
-      setLoadingActions(true);
+      setLoadingPasswordReset(true);
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-password-reset`, {
         method: 'POST',
         headers: { 
@@ -458,7 +459,7 @@ export const UsersPage: React.FC = () => {
       console.error('Error sending password reset:', error);
       toast.error(`Failed to send password reset: ${error.message}`);
     } finally {
-      setLoadingActions(false);
+      setLoadingPasswordReset(false);
     }
   };
 
@@ -1678,22 +1679,22 @@ export const UsersPage: React.FC = () => {
                   <CardContent className="space-y-3">
                     <Button 
                       onClick={() => sendWelcomeEmail(selectedUser.email, selectedUser.first_name || 'there', selectedUser.founding_member)}
-                      disabled={loadingActions}
+                      disabled={loadingEmail}
                       className="w-full justify-start"
                       variant="outline"
                     >
                       <Send className="w-4 h-4 mr-2" />
-                      {loadingActions ? 'Sending...' : selectedUser.founding_member ? 'Resend Founding Member Email' : 'Resend Welcome Email'}
+                      {loadingEmail ? 'Sending...' : selectedUser.founding_member ? 'Resend Founding Member Email' : 'Resend Welcome Email'}
                     </Button>
                     
                     <Button 
                       onClick={() => sendPasswordReset(selectedUser.email)}
-                      disabled={loadingActions}
+                      disabled={loadingPasswordReset}
                       className="w-full justify-start"
                       variant="outline"
                     >
                       <Key className="w-4 h-4 mr-2" />
-                      {loadingActions ? 'Sending...' : 'Reset Password'}
+                      {loadingPasswordReset ? 'Sending...' : 'Reset Password'}
                     </Button>
 
                     {selectedUser.stripe_customer_id && (
