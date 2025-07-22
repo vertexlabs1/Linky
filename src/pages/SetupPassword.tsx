@@ -23,18 +23,31 @@ const SetupPassword = () => {
 
   useEffect(() => {
     // Check if we have the necessary parameters
-    // Supabase generateLink with type: 'recovery' generates a URL with 'token' parameter
-    const token = searchParams.get('token');
-    const type = searchParams.get('type');
+    // Supabase generateLink generates URLs with tokens as URL fragments (#access_token=...)
+    const accessToken = searchParams.get('access_token') || window.location.hash.match(/access_token=([^&]+)/)?.[1];
+    const refreshToken = searchParams.get('refresh_token') || window.location.hash.match(/refresh_token=([^&]+)/)?.[1];
     
-    if (!token || type !== 'recovery') {
+    if (!accessToken || !refreshToken) {
       setError('Invalid password reset link. Please try requesting a new one.');
       return;
     }
 
-    // For recovery links, we don't need to set a session
-    // The token will be used when updating the password
-    console.log('Valid recovery token found');
+    // Set the session with the tokens from the URL fragment
+    const setSession = async () => {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (error) {
+        logger.error('Failed to set session', { error: error.message }, 'AUTH');
+        setError('Invalid password reset link. Please try requesting a new one.');
+      } else {
+        console.log('Session set successfully');
+      }
+    };
+
+    setSession();
   }, [searchParams]);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
@@ -56,15 +69,7 @@ const SetupPassword = () => {
     try {
       logger.userAction('password_reset_attempt', undefined, {});
       
-      // Get the token from URL parameters
-      const token = searchParams.get('token');
-      
-      if (!token) {
-        setError('Invalid password reset link. Please try requesting a new one.');
-        return;
-      }
-
-      // Use the recovery token to update the password
+      // Update the password using the current session
       const { error } = await supabase.auth.updateUser({
         password: password
       });
