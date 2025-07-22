@@ -356,7 +356,7 @@ export const UsersPage: React.FC = () => {
       
       // If we have data, use it
       if (transactionsResult.data && transactionsResult.data.length > 0) {
-        toast.success(`Found ${transactionsResult.data.length} transactions`);
+        console.log(`📊 Found ${transactionsResult.data.length} transactions in database`);
         return;
       }
 
@@ -394,7 +394,6 @@ export const UsersPage: React.FC = () => {
           if (!syncError) {
             console.log('📊 Synced transactions:', syncedData?.length || 0);
             setUserTransactions(syncedData || []);
-            toast.success(`Synced ${syncedData?.length || 0} transactions from Stripe`);
           } else {
             console.error('❌ Error fetching synced data:', syncError);
             toast.error('Failed to fetch synced transactions');
@@ -404,11 +403,10 @@ export const UsersPage: React.FC = () => {
           console.error('❌ Stripe sync failed:', response.status, errorText);
           toast.error('Failed to sync payment history from Stripe');
         }
-      } else {
-        console.log('⚠️ No Stripe customer ID found');
-        setUserTransactions([]);
-        toast.info('No Stripe customer found for this user');
-      }
+              } else {
+          console.log('⚠️ No Stripe customer ID found');
+          setUserTransactions([]);
+        }
     } catch (error) {
       console.error('❌ Error fetching transactions:', error);
       toast.error('Failed to fetch payment history');
@@ -1205,18 +1203,18 @@ export const UsersPage: React.FC = () => {
           setActivityHistory([]); // Clear activity history when closing
         }
       }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
-              User Profile
+              User Profile - {selectedUser?.first_name} {selectedUser?.last_name}
             </DialogTitle>
           </DialogHeader>
           
           {selectedUser && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Side - User Info & Actions */}
-              <div className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Left Column - User Info & Account Details */}
+              <div className="xl:col-span-1 space-y-6">
                 {/* User Information */}
                 <Card>
                   <CardHeader>
@@ -1321,7 +1319,8 @@ export const UsersPage: React.FC = () => {
                             <label htmlFor="founding_member_edit" className="text-sm font-medium">Founding Member</label>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        
+                        <div className="flex gap-2 pt-4 border-t">
                           <Button
                             onClick={handleSaveUser}
                             disabled={loadingUserEdit}
@@ -1339,44 +1338,65 @@ export const UsersPage: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Name</label>
-                          <p className="text-sm">{selectedUser.first_name} {selectedUser.last_name}</p>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">First Name</label>
+                            <p className="text-sm">{selectedUser.first_name || 'Not provided'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Last Name</label>
+                            <p className="text-sm">{selectedUser.last_name || 'Not provided'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Email</label>
+                            <p className="text-sm">{selectedUser.email}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Phone</label>
+                            <p className="text-sm">{selectedUser.phone || 'Not provided'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Company</label>
+                            <p className="text-sm">{selectedUser.company || 'Not provided'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Job Title</label>
+                            <p className="text-sm">{selectedUser.job_title || 'Not provided'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Status</label>
+                            <Badge variant={selectedUser.status === 'active' ? 'default' : 'secondary'}>
+                              {selectedUser.status}
+                            </Badge>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Member Since</label>
+                            <p className="text-sm">{new Date(selectedUser.created_at).toLocaleDateString()}</p>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Email</label>
-                          <p className="text-sm">{selectedUser.email}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Phone</label>
-                          <p className="text-sm">{selectedUser.phone || 'Not provided'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Company</label>
-                          <p className="text-sm">{selectedUser.company || 'Not provided'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Job Title</label>
-                          <p className="text-sm">{selectedUser.job_title || 'Not provided'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Status</label>
-                          <Badge variant={selectedUser.status === 'active' ? 'default' : 'secondary'}>
-                            {selectedUser.status}
-                          </Badge>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Admin Access</label>
-                          <Badge variant={selectedUser.is_admin ? 'default' : 'secondary'}>
-                            {selectedUser.is_admin ? 'Yes' : 'No'}
-                          </Badge>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Founding Member</label>
-                          <Badge variant={selectedUser.founding_member ? 'default' : 'secondary'}>
-                            {selectedUser.founding_member ? 'Yes' : 'No'}
-                          </Badge>
+                        
+                        <div className="flex items-center gap-4 pt-4 border-t">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="is_admin_display"
+                              checked={selectedUser.is_admin}
+                              disabled
+                              className="rounded"
+                            />
+                            <label htmlFor="is_admin_display" className="text-sm font-medium">Admin Access</label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="founding_member_display"
+                              checked={selectedUser.founding_member}
+                              disabled
+                              className="rounded"
+                            />
+                            <label htmlFor="founding_member_display" className="text-sm font-medium">Founding Member</label>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1391,14 +1411,15 @@ export const UsersPage: React.FC = () => {
                         <CreditCard className="w-5 h-5" />
                         Billing Information
                       </div>
-                      {!isEditingBilling && selectedUser.stripe_customer_id && (
+                      {!isEditingBilling && (
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={startBillingEdit}
+                          className="flex items-center gap-1"
                         >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit Billing
+                          <Edit className="w-3 h-3" />
+                          Edit
                         </Button>
                       )}
                     </CardTitle>
@@ -1406,7 +1427,6 @@ export const UsersPage: React.FC = () => {
                   <CardContent className="space-y-4">
                     {isEditingBilling ? (
                       <div className="space-y-4">
-                        {/* Same as Account Checkbox */}
                         <div className="flex items-center space-x-2">
                           <input
                             type="checkbox"
@@ -1441,15 +1461,13 @@ export const UsersPage: React.FC = () => {
                                 />
                               </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-sm font-medium">Billing Phone</label>
-                                <Input
-                                  value={billingForm.phone}
-                                  onChange={(e) => setBillingForm({...billingForm, phone: e.target.value})}
-                                  placeholder="+1 (555) 123-4567"
-                                />
-                              </div>
+                            <div>
+                              <label className="text-sm font-medium">Billing Phone</label>
+                              <Input
+                                value={billingForm.phone}
+                                onChange={(e) => setBillingForm({...billingForm, phone: e.target.value})}
+                                placeholder="+1 (555) 123-4567"
+                              />
                             </div>
                             <div>
                               <label className="text-sm font-medium">Billing Address</label>
@@ -1457,25 +1475,24 @@ export const UsersPage: React.FC = () => {
                                 value={billingForm.address}
                                 onChange={(e) => setBillingForm({...billingForm, address: e.target.value})}
                                 placeholder="123 Main St"
-                                className="mb-2"
                               />
-                              <div className="grid grid-cols-3 gap-2">
-                                <Input
-                                  value={billingForm.city}
-                                  onChange={(e) => setBillingForm({...billingForm, city: e.target.value})}
-                                  placeholder="City"
-                                />
-                                <Input
-                                  value={billingForm.state}
-                                  onChange={(e) => setBillingForm({...billingForm, state: e.target.value})}
-                                  placeholder="State"
-                                />
-                                <Input
-                                  value={billingForm.zip}
-                                  onChange={(e) => setBillingForm({...billingForm, zip: e.target.value})}
-                                  placeholder="ZIP"
-                                />
-                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                              <Input
+                                value={billingForm.city}
+                                onChange={(e) => setBillingForm({...billingForm, city: e.target.value})}
+                                placeholder="City"
+                              />
+                              <Input
+                                value={billingForm.state}
+                                onChange={(e) => setBillingForm({...billingForm, state: e.target.value})}
+                                placeholder="State"
+                              />
+                              <Input
+                                value={billingForm.zip}
+                                onChange={(e) => setBillingForm({...billingForm, zip: e.target.value})}
+                                placeholder="ZIP"
+                              />
                             </div>
                           </div>
                         )}
@@ -1534,30 +1551,88 @@ export const UsersPage: React.FC = () => {
                           </div>
                         </div>
                         
-                                            {/* Sync with Stripe Button */}
-                    {selectedUser.stripe_customer_id && (
-                      <div className="pt-4 border-t space-y-2">
-                        <Button
-                          onClick={handleSyncWithStripe}
-                          disabled={loadingStripeSync}
-                          variant="outline"
-                          className="w-full"
-                        >
-                          {loadingStripeSync ? 'Syncing...' : 'Sync with Stripe'}
-                        </Button>
-                      </div>
-                    )}
+                        {/* Sync with Stripe Button */}
+                        {selectedUser.stripe_customer_id && (
+                          <div className="pt-4 border-t space-y-2">
+                            <Button
+                              onClick={handleSyncWithStripe}
+                              disabled={loadingStripeSync}
+                              variant="outline"
+                              className="w-full"
+                            >
+                              {loadingStripeSync ? 'Syncing...' : 'Sync with Stripe'}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="w-5 h-5" />
+                      Quick Actions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button 
+                      onClick={() => sendWelcomeEmail(selectedUser.email, selectedUser.first_name || 'there', selectedUser.founding_member)}
+                      disabled={loadingEmail || selectedUser.status === 'active'}
+                      className="w-full justify-start"
+                      variant="outline"
+                      title={selectedUser.status === 'active' ? 'User has already set up their account' : ''}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {loadingEmail ? 'Sending...' : 'Resend Welcome Email'}
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => sendPasswordReset(selectedUser.email)}
+                      disabled={loadingPasswordReset}
+                      className="w-full justify-start"
+                      variant="outline"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      {loadingPasswordReset ? 'Sending...' : 'Reset Password'}
+                    </Button>
+
+                    {selectedUser.stripe_customer_id && (
+                      <Button 
+                        onClick={() => window.open(`https://dashboard.stripe.com/customers/${selectedUser.stripe_customer_id}`, '_blank')}
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        View in Stripe
+                      </Button>
+                    )}
+
+                    <Button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedUser.email);
+                        toast.success('Email copied to clipboard');
+                      }}
+                      className="w-full justify-start"
+                      variant="outline"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Email
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Middle Column - Subscription & Billing Details */}
+              <div className="xl:col-span-1 space-y-6">
                 {/* Stripe Information */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CreditCard className="w-5 h-5" />
-                      Stripe Information
+                      Subscription Details
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -1583,41 +1658,31 @@ export const UsersPage: React.FC = () => {
                                 <p className="text-sm text-gray-600">
                                   <span className="font-medium">Prospector ($75/month)</span>
                                   <br />
-                                  <span className="text-xs">Transitioned from Founding Member</span>
+                                  <span className="text-xs text-gray-500">
+                                    Transitioned from Founding Member on {new Date(selectedUser.founding_member_transitioned_at).toLocaleDateString()}
+                                  </span>
                                 </p>
                               ) : (
-                                <div>
-                                  <p className="text-sm font-medium text-yellow-700">
-                                    Founding Member ($25/3mo)
-                                  </p>
-                                  {selectedUser.founding_member_transition_date && (
-                                    <p className="text-xs text-gray-500">
-                                      Expires: {new Date(selectedUser.founding_member_transition_date).toLocaleDateString()}
-                                      {(() => {
-                                        const daysRemaining = Math.ceil((new Date(selectedUser.founding_member_transition_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                                        if (daysRemaining > 0) {
-                                          return ` (${daysRemaining} days left)`;
-                                        } else if (daysRemaining <= 0) {
-                                          return ' (Expired - needs transition)';
-                                        }
-                                        return '';
-                                      })()}
-                                    </p>
-                                  )}
-                                </div>
+                                <p className="text-sm text-gray-600">
+                                  <span className="font-medium">Founding Member ($25 for 3 months)</span>
+                                  <br />
+                                  <span className="text-xs text-gray-500">
+                                    Purchased {selectedUser.founding_member_purchased_at ? new Date(selectedUser.founding_member_purchased_at).toLocaleDateString() : 'N/A'}
+                                  </span>
+                                </p>
                               )}
                             </div>
-                          ) : (
-                            <p className="text-sm">
-                              {selectedUser.current_plan_id ? getPlanById(selectedUser.current_plan_id)?.name || 'N/A' : 'Free'}
-                            </p>
-                          )}
+                                                      ) : (
+                              <p className="text-sm text-gray-600">
+                                <span className="font-medium">{getPlanById(selectedUser.current_plan_id || selectedUser.subscription_plan)?.name || selectedUser.subscription_plan}</span>
+                              </p>
+                            )}
                         </div>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-600">Subscription Status</label>
                         <Badge variant={
-                          selectedUser.subscription_status === 'active' ? 'default' : 
+                          selectedUser.subscription_status === 'active' ? 'default' :
                           selectedUser.subscription_status === 'past_due' ? 'destructive' : 'secondary'
                         }>
                           {selectedUser.subscription_status || 'Inactive'}
@@ -1659,10 +1724,10 @@ export const UsersPage: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium text-gray-600">Current Promo</label>
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {selectedUser.promo_active ? (
                             <div>
-                              <p className="text-sm font-medium text-green-700">
+                              <p className="text-sm font-medium">
                                 {getPromoDiscount(selectedUser.promo_type || '')}
                               </p>
                               {selectedUser.promo_expiration_date && (
@@ -1708,12 +1773,55 @@ export const UsersPage: React.FC = () => {
                   </CardContent>
                 </Card>
 
+                {/* Customer Service Tools */}
+                {selectedUser.stripe_customer_id && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="w-5 h-5" />
+                        Customer Service
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <Button 
+                        onClick={() => setShowBillingUpdate(true)}
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Update Billing Info
+                      </Button>
+
+                      <Button 
+                        onClick={() => setShowRefundModal(true)}
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <DollarSign className="w-4 h-4 mr-2" />
+                        Process Refund
+                      </Button>
+
+                      <Button 
+                        onClick={() => setShowSubscriptionChange(true)}
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Change Subscription
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Right Column - Payment History & Activity */}
+              <div className="xl:col-span-1 space-y-6">
                 {/* Payment History & Card Information */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5" />
-                      Payment History & Card Information
+                      <Receipt className="w-5 h-5" />
+                      Payment History
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -1745,7 +1853,7 @@ export const UsersPage: React.FC = () => {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                       </div>
                     ) : userTransactions.length > 0 ? (
-                      <div className="space-y-3">
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
                         {userTransactions.map((transaction) => (
                           <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
                             <div className="flex-1">
@@ -1817,7 +1925,7 @@ export const UsersPage: React.FC = () => {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                       </div>
                     ) : activityHistory.length > 0 ? (
-                      <div className="space-y-3">
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
                         {activityHistory.map((activity) => (
                           <div key={activity.id} className="flex items-center justify-between p-3 border rounded-lg">
                             <div className="flex-1">
@@ -1851,157 +1959,66 @@ export const UsersPage: React.FC = () => {
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Action Buttons */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
-                      Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button 
-                      onClick={() => sendWelcomeEmail(selectedUser.email, selectedUser.first_name || 'there', selectedUser.founding_member)}
-                      disabled={loadingEmail || selectedUser.status === 'active'}
-                      className="w-full justify-start"
-                      variant="outline"
-                      title={selectedUser.status === 'active' ? 'User has already set up their account' : ''}
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      {loadingEmail ? 'Sending...' : 'Resend Welcome Email'}
-                    </Button>
-                    
-                    <Button 
-                      onClick={() => sendPasswordReset(selectedUser.email)}
-                      disabled={loadingPasswordReset}
-                      className="w-full justify-start"
-                      variant="outline"
-                    >
-                      <Key className="w-4 h-4 mr-2" />
-                      {loadingPasswordReset ? 'Sending...' : 'Reset Password'}
-                    </Button>
-
-
-
-                    {selectedUser.stripe_customer_id && (
-                      <Button 
-                        onClick={() => window.open(`https://dashboard.stripe.com/customers/${selectedUser.stripe_customer_id}`, '_blank')}
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        View in Stripe
-                      </Button>
-                    )}
-
-                    <Button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(selectedUser.email);
-                        toast.success('Email copied to clipboard');
-                      }}
-                      className="w-full justify-start"
-                      variant="outline"
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy Email
-                    </Button>
-
-                    {/* Customer Service Tools */}
-                    {selectedUser.stripe_customer_id && (
-                      <>
-                        <Button 
-                          onClick={() => setShowBillingUpdate(true)}
-                          className="w-full justify-start"
-                          variant="outline"
-                        >
-                          <CreditCard className="w-4 h-4 mr-2" />
-                          Update Billing Info
-                        </Button>
-
-                        <Button 
-                          onClick={() => setShowRefundModal(true)}
-                          className="w-full justify-start"
-                          variant="outline"
-                        >
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          Process Refund
-                        </Button>
-
-                        <Button 
-                          onClick={() => setShowSubscriptionChange(true)}
-                          className="w-full justify-start"
-                          variant="outline"
-                        >
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Change Subscription
-                        </Button>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
               </div>
-
-
             </div>
           )}
+        </DialogContent>
+      </Dialog>
 
-          {/* Add Promo Modal */}
-          <Dialog open={showAddPromo} onOpenChange={setShowAddPromo}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Promo Code</DialogTitle>
-              </DialogHeader>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Promo Type</label>
-                  <Select 
-                    value={promoForm.type}
-                    onValueChange={(value) => setPromoForm({...promoForm, type: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select promo type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="founding_member">Founding Member (3 months for $25)</SelectItem>
-                      <SelectItem value="one_week_trial">1 Week Trial (Free)</SelectItem>
-                      <SelectItem value="beta_tester">Beta Tester (50% off)</SelectItem>
-                      <SelectItem value="early_adopter">Early Adopter (25% off)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Duration (days)</label>
-                  <Input 
-                    type="number"
-                    value={promoForm.duration_days}
-                    onChange={(e) => setPromoForm({...promoForm, duration_days: parseInt(e.target.value) || 90})}
-                    placeholder="90"
-                  />
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Notes</label>
-                  <Input 
-                    value={promoForm.notes}
-                    onChange={(e) => setPromoForm({...promoForm, notes: e.target.value})}
-                    placeholder="Reason for applying this promo..."
-                  />
-                </div>
-              </div>
-              
-              <DialogFooter>
-                <Button 
-                  onClick={handleAddPromo}
-                  disabled={loadingPromo || !promoForm.type}
-                >
-                  {loadingPromo ? 'Applying...' : 'Apply Promo'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+      {/* Add Promo Modal */}
+      <Dialog open={showAddPromo} onOpenChange={setShowAddPromo}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Promo Code</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Promo Type</label>
+              <Select 
+                value={promoForm.type}
+                onValueChange={(value) => setPromoForm({...promoForm, type: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select promo type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="founding_member">Founding Member (3 months for $25)</SelectItem>
+                  <SelectItem value="one_week_trial">1 Week Trial (Free)</SelectItem>
+                  <SelectItem value="beta_tester">Beta Tester (50% off)</SelectItem>
+                  <SelectItem value="early_adopter">Early Adopter (25% off)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium text-gray-600">Duration (days)</label>
+              <Input 
+                type="number"
+                value={promoForm.duration_days}
+                onChange={(e) => setPromoForm({...promoForm, duration_days: parseInt(e.target.value) || 90})}
+                placeholder="90"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium text-gray-600">Notes</label>
+              <Input 
+                value={promoForm.notes}
+                onChange={(e) => setPromoForm({...promoForm, notes: e.target.value})}
+                placeholder="Reason for applying this promo..."
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={handleAddPromo}
+              disabled={loadingPromo || !promoForm.type}
+            >
+              {loadingPromo ? 'Applying...' : 'Apply Promo'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
