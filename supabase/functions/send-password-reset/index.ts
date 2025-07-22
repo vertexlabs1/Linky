@@ -31,7 +31,7 @@ serve(async (req) => {
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: 'https://www.uselinky.app/reset-password'
+        redirectTo: 'https://www.uselinky.app/setup-password'
       }
     })
 

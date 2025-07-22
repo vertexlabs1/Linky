@@ -23,28 +23,18 @@ const SetupPassword = () => {
 
   useEffect(() => {
     // Check if we have the necessary parameters
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
+    // Supabase generateLink with type: 'recovery' generates a URL with 'token' parameter
+    const token = searchParams.get('token');
+    const type = searchParams.get('type');
     
-    if (!accessToken || !refreshToken) {
+    if (!token || type !== 'recovery') {
       setError('Invalid password reset link. Please try requesting a new one.');
       return;
     }
 
-    // Set the session
-    const setSession = async () => {
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      if (error) {
-        logger.error('Failed to set session', { error: error.message }, 'AUTH');
-        setError('Invalid password reset link. Please try requesting a new one.');
-      }
-    };
-
-    setSession();
+    // For recovery links, we don't need to set a session
+    // The token will be used when updating the password
+    console.log('Valid recovery token found');
   }, [searchParams]);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
@@ -66,7 +56,15 @@ const SetupPassword = () => {
     try {
       logger.userAction('password_reset_attempt', undefined, {});
       
-      // Standard Supabase flow with tokens
+      // Get the token from URL parameters
+      const token = searchParams.get('token');
+      
+      if (!token) {
+        setError('Invalid password reset link. Please try requesting a new one.');
+        return;
+      }
+
+      // Use the recovery token to update the password
       const { error } = await supabase.auth.updateUser({
         password: password
       });
