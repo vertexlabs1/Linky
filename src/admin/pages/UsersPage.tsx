@@ -1679,12 +1679,13 @@ export const UsersPage: React.FC = () => {
                   <CardContent className="space-y-3">
                     <Button 
                       onClick={() => sendWelcomeEmail(selectedUser.email, selectedUser.first_name || 'there', selectedUser.founding_member)}
-                      disabled={loadingEmail}
+                      disabled={loadingEmail || selectedUser.status === 'active'}
                       className="w-full justify-start"
                       variant="outline"
+                      title={selectedUser.status === 'active' ? 'User has already set up their account' : ''}
                     >
                       <Send className="w-4 h-4 mr-2" />
-                      {loadingEmail ? 'Sending...' : selectedUser.founding_member ? 'Resend Founding Member Email' : 'Resend Welcome Email'}
+                      {loadingEmail ? 'Sending...' : 'Resend Welcome Email'}
                     </Button>
                     
                     <Button 
