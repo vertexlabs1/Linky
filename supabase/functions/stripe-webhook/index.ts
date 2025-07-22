@@ -134,34 +134,80 @@ async function handleCheckoutCompleted(session: any) {
   console.log('Processing checkout session:', session.id)
   console.log('Customer email:', session.customer_details?.email)
   console.log('Metadata:', session.metadata)
+  console.log('Subscription metadata:', session.subscription_data?.metadata)
   
-  if (session.metadata?.firstName && session.metadata?.lastName) {
-    try {
-      console.log('💾 Attempting to update user in database...')
+  // Get metadata from both possible locations
+  const metadata = session.metadata || session.subscription_data?.metadata || {}
+  const firstName = metadata.firstName || metadata.first_name
+  const lastName = metadata.lastName || metadata.last_name
+  
+  console.log('Extracted metadata:', { firstName, lastName, metadata })
+  
+  // Process ALL checkout sessions, not just those with firstName/lastName
+  // This ensures we don't miss any users
+  try {
+    console.log('💾 Attempting to update user in database...')
+    
+    // Determine subscription plan based on the session
+    let subscriptionPlan = 'Prospector' // Default
+    let subscriptionType = 'regular'
+    let foundingMember = false
+    
+    if (metadata.type === 'founding_member_schedule' || metadata.type === 'founding_member') {
+      subscriptionPlan = 'Prospector' // Founding members start on Prospector
+      subscriptionType = 'founding_member_schedule'
+      foundingMember = true
+    }
+    
+    // Check if we have a user_id in metadata (new flow)
+    if (metadata.user_id) {
+      console.log('🔄 Using user_id from metadata to update existing user:', metadata.user_id)
       
-      // Determine subscription plan based on the session
-      let subscriptionPlan = 'Prospector' // Default
-      let subscriptionType = 'regular'
-      let foundingMember = false
-      
-      if (session.metadata?.type === 'founding_member_schedule') {
-        subscriptionPlan = 'Prospector' // Founding members start on Prospector
-        subscriptionType = 'founding_member_schedule'
-        foundingMember = true
+      // Update existing user record
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .update({
+          stripe_customer_id: session.customer,
+          stripe_subscription_id: session.subscription,
+          stripe_session_id: session.id,
+          stripe_subscription_schedule_id: metadata.subscription_schedule_id || null,
+          status: 'active',
+          subscription_status: 'active',
+          subscription_plan: subscriptionPlan,
+          subscription_type: subscriptionType,
+          founding_member: foundingMember,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', metadata.user_id)
+        .select()
+        .single()
+
+      if (userError) {
+        console.error('❌ Error updating user data:', userError)
+      } else {
+        console.log('✅ Successfully updated user data:', userData)
       }
+    } else {
+      // Fallback to old flow (create new user)
+      console.log('⚠️ No user_id in metadata, falling back to create new user')
       
-      // Check if we have a user_id in metadata (new flow)
-      if (session.metadata?.user_id) {
-        console.log('🔄 Using user_id from metadata to update existing user:', session.metadata.user_id)
+      // Check if user already exists by email
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', session.customer_details.email)
+        .single()
+
+      if (existingUser) {
+        console.log('🔄 User exists by email, updating with Stripe data')
         
-        // Update existing user record
         const { data: userData, error: userError } = await supabase
           .from('users')
           .update({
             stripe_customer_id: session.customer,
             stripe_subscription_id: session.subscription,
             stripe_session_id: session.id,
-            stripe_subscription_schedule_id: session.metadata?.subscription_schedule_id || null,
+            stripe_subscription_schedule_id: metadata.subscription_schedule_id || null,
             status: 'active',
             subscription_status: 'active',
             subscription_plan: subscriptionPlan,
@@ -169,30 +215,28 @@ async function handleCheckoutCompleted(session: any) {
             founding_member: foundingMember,
             updated_at: new Date().toISOString()
           })
-          .eq('id', session.metadata.user_id)
+          .eq('id', existingUser.id)
           .select()
           .single()
 
         if (userError) {
-          console.error('❌ Error updating user data:', userError)
+          console.error('❌ Error updating existing user data:', userError)
         } else {
-          console.log('✅ Successfully updated user data:', userData)
+          console.log('✅ Successfully updated existing user data:', userData)
         }
       } else {
-        // Fallback to old flow (create new user)
-        console.log('⚠️ No user_id in metadata, falling back to create new user')
-        
+        // Create completely new user
         const { data: userData, error: userError } = await supabase
           .from('users')
           .insert({
             email: session.customer_details.email,
-            first_name: session.metadata.firstName,
-            last_name: session.metadata.lastName,
-            phone: session.metadata.phone || null,
+            first_name: firstName || session.customer_details.email?.split('@')[0] || '',
+            last_name: lastName || '',
+            phone: metadata.phone || null,
             stripe_customer_id: session.customer,
             stripe_subscription_id: session.subscription,
             stripe_session_id: session.id,
-            stripe_subscription_schedule_id: session.metadata?.subscription_schedule_id || null,
+            stripe_subscription_schedule_id: metadata.subscription_schedule_id || null,
             status: 'active',
             subscription_status: 'active',
             subscription_plan: subscriptionPlan,
@@ -208,25 +252,25 @@ async function handleCheckoutCompleted(session: any) {
           console.log('✅ Successfully saved user data:', userData)
         }
       }
-    } catch (dbError) {
-      console.error('❌ Database error:', dbError)
     }
+  } catch (dbError) {
+    console.error('❌ Database error:', dbError)
+  }
 
-    // Send appropriate welcome email
-    if (session.metadata?.type === 'founding_member_schedule') {
-      await sendFoundingMemberWelcomeEmail(session)
-    } else {
-      await sendRegularWelcomeEmail(session)
-    }
+  // Send appropriate welcome email
+  if (metadata.type === 'founding_member_schedule' || metadata.type === 'founding_member') {
+    await sendFoundingMemberWelcomeEmail(session, metadata)
+  } else {
+    await sendRegularWelcomeEmail(session, metadata)
   }
 }
 
 // Send founding member welcome email
-async function sendFoundingMemberWelcomeEmail(session: any) {
+async function sendFoundingMemberWelcomeEmail(session: any, metadata: any) {
   try {
     console.log('📧 Sending founding member welcome email to:', session.customer_details?.email)
     
-    const firstName = session.metadata?.firstName || session.customer_details?.email?.split('@')[0] || 'there'
+    const firstName = metadata.firstName || session.customer_details?.email?.split('@')[0] || 'there'
     const sessionId = session.id
     
     // Call the dedicated founding member email function
@@ -255,11 +299,11 @@ async function sendFoundingMemberWelcomeEmail(session: any) {
 }
 
 // Send regular welcome email
-async function sendRegularWelcomeEmail(session: any) {
+async function sendRegularWelcomeEmail(session: any, metadata: any) {
   try {
     console.log('📧 Sending regular welcome email to:', session.customer_details?.email)
     
-    const firstName = session.metadata?.firstName || session.customer_details?.email?.split('@')[0] || 'there'
+    const firstName = metadata.firstName || session.customer_details?.email?.split('@')[0] || 'there'
     
     const { data, error } = await resend.emails.send({
       from: 'Linky Team <hello@uselinky.app>',
@@ -479,6 +523,45 @@ async function handleSubscriptionUpdated(subscription: any) {
     
   } catch (error) {
     console.error('❌ Error handling subscription update:', error)
+  }
+}
+
+// Handle subscription deletion
+async function handleSubscriptionDeleted(subscription: any) {
+  console.log('🗑️ Handling subscription deletion:', subscription.id)
+  
+  try {
+    // Find user by subscription ID
+    const { data: user, error: findError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('stripe_subscription_id', subscription.id)
+      .single()
+      
+    if (findError || !user) {
+      console.error('❌ Could not find user for subscription:', subscription.id)
+      return
+    }
+    
+    // Update user record to reflect cancelled subscription
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ 
+        subscription_status: 'cancelled',
+        status: 'cancelled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id)
+      
+    if (updateError) {
+      console.error('❌ Error updating user for subscription deletion:', updateError)
+      return
+    }
+    
+    console.log('✅ Successfully updated user for subscription deletion')
+    
+  } catch (error) {
+    console.error('❌ Error handling subscription deletion:', error)
   }
 }
 
