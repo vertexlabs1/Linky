@@ -1,478 +1,399 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { toast } from 'sonner';
+import { Progress } from '../../components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { 
-  CheckCircle, 
-  XCircle, 
+  Activity, 
+  Database, 
+  CreditCard, 
+  Mail, 
+  Server, 
+  RefreshCw, 
   AlertTriangle, 
-  Clock, 
-  RefreshCw,
-  Activity,
-  Database,
-  Zap,
-  Users,
-  CreditCard,
-  TrendingUp,
-  AlertCircle,
-  Play
+  CheckCircle, 
+  Clock,
+  BarChart3,
+  Cpu,
+  HardDrive
 } from 'lucide-react';
+import { health, metrics } from '../../lib/monitoring';
+import { log } from '../../lib/logger';
 
-interface SyncHealth {
-  id: string;
-  sync_type: string;
-  status: string;
-  users_processed: number;
-  errors_encountered: number;
-  error_details: any;
-  started_at: string;
-  completed_at: string;
-  created_at: string;
+interface HealthCheck {
+  name: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  message: string;
+  timestamp: string;
+  duration?: number;
+  metadata?: Record<string, any>;
 }
 
-interface BillingEvent {
-  id: string;
-  event_type: string;
-  stripe_event_id: string;
-  processed: boolean;
-  retry_count: number;
-  error_message?: string;
-  created_at: string;
+interface SystemMetrics {
+  timestamp: string;
+  memory: {
+    used: number;
+    total: number;
+    percentage: number;
+  };
+  performance: {
+    loadTime: number;
+    renderTime: number;
+  };
+  errors: {
+    count: number;
+    lastError?: string;
+  };
+  users: {
+    active: number;
+    total: number;
+  };
 }
 
-interface WebhookDelivery {
-  id: string;
-  stripe_event_id: string;
-  event_type: string;
-  delivery_status: string;
-  retry_count: number;
-  error_message?: string;
-  created_at: string;
-}
-
-interface SystemStats {
-  totalUsers: number;
-  activeSubscriptions: number;
-  pendingEvents: number;
-  failedWebhooks: number;
-  staleUsers: number;
-}
-
-export const HealthPage: React.FC = () => {
-  const [syncHealth, setSyncHealth] = useState<SyncHealth[]>([]);
-  const [billingEvents, setBillingEvents] = useState<BillingEvent[]>([]);
-  const [webhookDeliveries, setWebhookDeliveries] = useState<WebhookDelivery[]>([]);
-  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+export default function HealthPage() {
+  const [healthStatus, setHealthStatus] = useState<HealthCheck[]>([]);
+  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics[]>([]);
+  const [uptime, setUptime] = useState(0);
+  const [errorCount, setErrorCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   useEffect(() => {
-    fetchHealthData();
-    
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchHealthData, 30000);
+    loadHealthData();
+    const interval = setInterval(loadHealthData, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
-  const fetchHealthData = async () => {
+  const loadHealthData = async () => {
+    setIsLoading(true);
     try {
-      setLoading(true);
+      // Get health status
+      const healthData = health.getStatus();
+      setHealthStatus(healthData);
 
-      // Fetch sync health records
-      const { data: syncData } = await supabase
-        .from('sync_health')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Get metrics
+      const metricsData = metrics.getMetrics();
+      setSystemMetrics(metricsData);
 
-      // Fetch recent billing events
-      const { data: eventsData } = await supabase
-        .from('billing_events')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
+      // Get uptime and error count
+      setUptime(health.getUptime());
+      setErrorCount(metrics.getErrorCount());
 
-      // Fetch webhook deliveries
-      const { data: webhooksData } = await supabase
-        .from('webhook_deliveries')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      setSyncHealth(syncData || []);
-      setBillingEvents(eventsData || []);
-      setWebhookDeliveries(webhooksData || []);
-
-      // Calculate system stats
-      const stats = await calculateSystemStats();
-      setSystemStats(stats);
-
+      setLastRefresh(new Date());
+      log.info('Health data refreshed', { 
+        healthChecks: healthData.length, 
+        metricsCount: metricsData.length 
+      });
     } catch (error) {
-      console.error('Error fetching health data:', error);
-      toast.error('Failed to fetch system health data');
+      log.error('Failed to load health data', error);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setIsLoading(false);
     }
   };
 
-  const calculateSystemStats = async (): Promise<SystemStats> => {
+  const triggerHealthCheck = async (checkName?: string) => {
+    setIsLoading(true);
     try {
-      // Get total users
-      const { count: totalUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
-
-      // Get active subscriptions
-      const { count: activeSubscriptions } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('subscription_status', 'active');
-
-      // Get pending events
-      const { count: pendingEvents } = await supabase
-        .from('billing_events')
-        .select('*', { count: 'exact', head: true })
-        .eq('processed', false);
-
-      // Get failed webhooks
-      const { count: failedWebhooks } = await supabase
-        .from('webhook_deliveries')
-        .select('*', { count: 'exact', head: true })
-        .eq('delivery_status', 'failed');
-
-      // Get stale users (no sync in last 24 hours)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      const { count: staleUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .lt('last_sync_at', yesterday.toISOString());
-
-      return {
-        totalUsers: totalUsers || 0,
-        activeSubscriptions: activeSubscriptions || 0,
-        pendingEvents: pendingEvents || 0,
-        failedWebhooks: failedWebhooks || 0,
-        staleUsers: staleUsers || 0
-      };
+      await health.triggerCheck(checkName);
+      await loadHealthData();
+      log.info('Manual health check triggered', { checkName });
     } catch (error) {
-      console.error('Error calculating system stats:', error);
-      return {
-        totalUsers: 0,
-        activeSubscriptions: 0,
-        pendingEvents: 0,
-        failedWebhooks: 0,
-        staleUsers: 0
-      };
-    }
-  };
-
-  const triggerManualSync = async () => {
-    try {
-      setRefreshing(true);
-      
-      // Call the daily billing sync function
-      const { data, error } = await supabase.functions.invoke('daily-billing-sync');
-      
-      if (error) {
-        console.error('Error triggering manual sync:', error);
-        toast.error('Failed to trigger manual sync');
-        return;
-      }
-
-      toast.success('Manual sync triggered successfully');
-      
-      // Refresh data after a short delay
-      setTimeout(() => {
-        fetchHealthData();
-      }, 2000);
-
-    } catch (error) {
-      console.error('Error triggering manual sync:', error);
-      toast.error('Failed to trigger manual sync');
+      log.error('Failed to trigger health check', error);
     } finally {
-      setRefreshing(false);
+      setIsLoading(false);
     }
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'success':
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'failed':
-      case 'error':
-        return <XCircle className="w-4 h-4 text-red-500" />;
-      case 'pending':
-      case 'processing':
-        return <Clock className="w-4 h-4 text-yellow-500" />;
+    switch (status) {
+      case 'healthy':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'degraded':
+        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      case 'unhealthy':
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
       default:
-        return <AlertTriangle className="w-4 h-4 text-gray-500" />;
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'success':
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'failed':
-      case 'error':
-        return 'bg-red-100 text-red-800';
-      case 'pending':
-      case 'processing':
-        return 'bg-yellow-100 text-yellow-800';
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'healthy':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Healthy</Badge>;
+      case 'degraded':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Degraded</Badge>;
+      case 'unhealthy':
+        return <Badge variant="destructive">Unhealthy</Badge>;
       default:
-        return 'bg-gray-100 text-gray-800';
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin" />
-        <span className="ml-2">Loading system health...</span>
-      </div>
-    );
-  }
+  const formatUptime = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const overallStatus = healthStatus.length > 0 
+    ? healthStatus.some(h => h.status === 'unhealthy') ? 'unhealthy'
+    : healthStatus.some(h => h.status === 'degraded') ? 'degraded'
+    : 'healthy'
+    : 'unknown';
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">System Health</h1>
-          <p className="text-gray-500">Monitor system performance and sync status</p>
+          <h1 className="text-3xl font-bold tracking-tight">System Health</h1>
+          <p className="text-muted-foreground">
+            Monitor system status, performance, and health checks
+          </p>
         </div>
-        <Button
-          onClick={triggerManualSync}
-          disabled={refreshing}
-          className="flex items-center gap-2"
-        >
-          {refreshing ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
-          {refreshing ? 'Syncing...' : 'Trigger Manual Sync'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => triggerHealthCheck()}
+            disabled={isLoading}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Last updated: {lastRefresh.toLocaleTimeString()}
+          </span>
+        </div>
       </div>
 
-      {/* System Stats */}
-      {systemStats && (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-blue-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Total Users</p>
-                  <p className="text-2xl font-bold">{systemStats.totalUsers}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <CreditCard className="w-8 h-8 text-green-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Active Subscriptions</p>
-                  <p className="text-2xl font-bold">{systemStats.activeSubscriptions}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Activity className="w-8 h-8 text-yellow-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Pending Events</p>
-                  <p className="text-2xl font-bold">{systemStats.pendingEvents}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-8 h-8 text-red-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Failed Webhooks</p>
-                  <p className="text-2xl font-bold">{systemStats.failedWebhooks}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Clock className="w-8 h-8 text-orange-500" />
-                <div>
-                  <p className="text-sm text-gray-500">Stale Users</p>
-                  <p className="text-2xl font-bold">{systemStats.staleUsers}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Alerts */}
-      {systemStats && (systemStats.pendingEvents > 0 || systemStats.failedWebhooks > 0) && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {systemStats.pendingEvents > 0 && `${systemStats.pendingEvents} pending events need processing. `}
-            {systemStats.failedWebhooks > 0 && `${systemStats.failedWebhooks} webhook deliveries failed. `}
-            Consider triggering a manual sync to resolve these issues.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Sync Health */}
+      {/* Overall Status */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Database className="w-5 h-5" />
-            Recent Sync Activity
+            <Activity className="h-5 w-5" />
+            Overall System Status
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {syncHealth.length > 0 ? (
-            <div className="space-y-4">
-              {syncHealth.map((sync) => (
-                <div key={sync.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(sync.status)}
-                    <div>
-                      <p className="font-medium">{sync.sync_type}</p>
-                      <p className="text-sm text-gray-500">
-                        {sync.users_processed} users processed
-                        {sync.errors_encountered > 0 && `, ${sync.errors_encountered} errors`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge className={getStatusColor(sync.status)}>
-                      {sync.status}
-                    </Badge>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {new Date(sync.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-3">
+              {getStatusIcon(overallStatus)}
+              <div>
+                <p className="font-medium">System</p>
+                {getStatusBadge(overallStatus)}
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <Database className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900">No sync activity</h3>
-              <p className="text-gray-500">Sync activity will appear here once the system starts processing data.</p>
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="font-medium">Uptime</p>
+                <p className="text-sm text-muted-foreground">{formatUptime(uptime)}</p>
+              </div>
             </div>
-          )}
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <div>
+                <p className="font-medium">Errors</p>
+                <p className="text-sm text-muted-foreground">{errorCount}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <BarChart3 className="h-5 w-5 text-green-500" />
+              <div>
+                <p className="font-medium">Health Checks</p>
+                <p className="text-sm text-muted-foreground">{healthStatus.length}</p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Billing Events */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5" />
-            Recent Billing Events
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {billingEvents.length > 0 ? (
-            <div className="space-y-4">
-              {billingEvents.slice(0, 10).map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(event.processed ? 'completed' : 'pending')}
-                    <div>
-                      <p className="font-medium">{event.event_type}</p>
-                      <p className="text-sm text-gray-500">ID: {event.stripe_event_id}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge className={getStatusColor(event.processed ? 'completed' : 'pending')}>
-                      {event.processed ? 'Processed' : 'Pending'}
-                    </Badge>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {new Date(event.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <CreditCard className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900">No billing events</h3>
-              <p className="text-gray-500">Billing events will appear here once Stripe webhooks are processed.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="health" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="health">Health Checks</TabsTrigger>
+          <TabsTrigger value="metrics">Performance Metrics</TabsTrigger>
+          <TabsTrigger value="system">System Info</TabsTrigger>
+        </TabsList>
 
-      {/* Webhook Deliveries */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5" />
-            Webhook Deliveries
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {webhookDeliveries.length > 0 ? (
-            <div className="space-y-4">
-              {webhookDeliveries.slice(0, 10).map((webhook) => (
-                <div key={webhook.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(webhook.delivery_status)}
-                    <div>
-                      <p className="font-medium">{webhook.event_type}</p>
-                      <p className="text-sm text-gray-500">ID: {webhook.stripe_event_id}</p>
-                      {webhook.error_message && (
-                        <p className="text-sm text-red-600">{webhook.error_message}</p>
-                      )}
+        <TabsContent value="health" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {healthStatus.map((check) => (
+              <Card key={check.name}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {check.name === 'database_connection' && <Database className="h-4 w-4" />}
+                      {check.name === 'stripe_connection' && <CreditCard className="h-4 w-4" />}
+                      {check.name === 'email_service' && <Mail className="h-4 w-4" />}
+                      {check.name === 'api_endpoints' && <Server className="h-4 w-4" />}
+                      {check.name}
+                    </CardTitle>
+                    {getStatusBadge(check.status)}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-2">{check.message}</p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Duration: {check.duration ? `${check.duration}ms` : 'N/A'}</span>
+                    <span>{new Date(check.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                  {check.metadata && Object.keys(check.metadata).length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs text-muted-foreground">
+                        Details
+                      </summary>
+                      <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-auto">
+                        {JSON.stringify(check.metadata, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="metrics" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4" />
+                  Memory Usage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {systemMetrics.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Used</span>
+                      <span>{formatBytes(systemMetrics[systemMetrics.length - 1].memory.used)}</span>
+                    </div>
+                    <Progress 
+                      value={systemMetrics[systemMetrics.length - 1].memory.percentage} 
+                      className="h-2"
+                    />
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Total</span>
+                      <span>{formatBytes(systemMetrics[systemMetrics.length - 1].memory.total)}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <Badge className={getStatusColor(webhook.delivery_status)}>
-                      {webhook.delivery_status}
-                    </Badge>
-                    {webhook.retry_count > 0 && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        Retries: {webhook.retry_count}
-                      </p>
-                    )}
-                    <p className="text-sm text-gray-500 mt-1">
-                      {new Date(webhook.created_at).toLocaleString()}
-                    </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {systemMetrics.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Load Time</span>
+                      <span>{systemMetrics[systemMetrics.length - 1].performance.loadTime}ms</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Render Time</span>
+                      <span>{systemMetrics[systemMetrics.length - 1].performance.renderTime}ms</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Metrics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {systemMetrics.slice(-10).reverse().map((metric, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                    <span className="text-sm">{new Date(metric.timestamp).toLocaleTimeString()}</span>
+                    <div className="flex gap-4 text-sm">
+                      <span>Memory: {metric.memory.percentage.toFixed(1)}%</span>
+                      <span>Load: {metric.performance.loadTime}ms</span>
+                      <span>Errors: {metric.errors.count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="system" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <HardDrive className="h-4 w-4" />
+                System Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium mb-2">Environment</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Mode:</span>
+                      <Badge variant="outline">{import.meta.env.MODE}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Version:</span>
+                      <span>{import.meta.env.VITE_APP_VERSION || '1.0.0'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Build Time:</span>
+                      <span>{import.meta.env.VITE_BUILD_TIME || 'Unknown'}</span>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Zap className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900">No webhook deliveries</h3>
-              <p className="text-gray-500">Webhook delivery logs will appear here once Stripe webhooks are received.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div>
+                  <h4 className="font-medium mb-2">Browser</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>User Agent:</span>
+                      <span className="text-xs truncate max-w-32">{navigator.userAgent}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Language:</span>
+                      <span>{navigator.language}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Online:</span>
+                      <Badge variant={navigator.onLine ? "default" : "destructive"}>
+                        {navigator.onLine ? 'Online' : 'Offline'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
-}; 
+} 
