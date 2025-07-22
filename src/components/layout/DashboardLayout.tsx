@@ -15,7 +15,8 @@ import {
   CreditCard,
   Mail,
   Gift,
-  Activity
+  Activity,
+  Rss
 } from 'lucide-react';
 import { useAdminCheck } from '@/hooks/useAdminCheck';
 import { Button } from '@/components/ui/button';
@@ -130,6 +131,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const navigation = [
     { name: 'Welcome', href: '/dashboard', icon: Home },
+    { name: 'Content', href: '/dashboard/content', icon: Rss },
   ];
 
   // Admin link
