@@ -34,7 +34,9 @@ import {
   Shield,
   Activity,
   Edit,
-  Receipt
+  Receipt,
+  Gift,
+  X
 } from 'lucide-react';
 import { getPlanById, getStatusIcon, getStatusColor, formatPrice } from '../../lib/stripe/stripe-service';
 
@@ -67,6 +69,7 @@ interface User {
   billing_phone?: string;
   promo_active?: boolean;
   promo_type?: string;
+  promo_expiration_date?: string;
 }
 
 interface Transaction {
@@ -143,6 +146,13 @@ export const UsersPage: React.FC = () => {
   const [showBillingUpdate, setShowBillingUpdate] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [showSubscriptionChange, setShowSubscriptionChange] = useState(false);
+  const [showAddPromo, setShowAddPromo] = useState(false);
+  const [promoForm, setPromoForm] = useState({
+    type: '',
+    duration_days: 90,
+    notes: ''
+  });
+  const [loadingPromo, setLoadingPromo] = useState(false);
 
   // Enhanced billing state management
   const [isEditingBilling, setIsEditingBilling] = useState(false);
@@ -876,6 +886,76 @@ export const UsersPage: React.FC = () => {
     }
   };
 
+  // Promo management functions
+  const handleAddPromo = async () => {
+    if (!selectedUser || !promoForm.type) return;
+    
+    setLoadingPromo(true);
+    try {
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + promoForm.duration_days);
+      
+      const { error } = await supabase
+        .from('users')
+        .update({
+          promo_active: true,
+          promo_type: promoForm.type,
+          promo_expiration_date: expirationDate.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      toast.success(`Promo applied successfully to ${selectedUser.email}`);
+      setShowAddPromo(false);
+      setPromoForm({ type: '', duration_days: 90, notes: '' });
+      fetchUsers(); // Refresh user list
+    } catch (error) {
+      console.error('Error applying promo:', error);
+      toast.error('Failed to apply promo');
+    } finally {
+      setLoadingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          promo_active: false,
+          promo_type: null,
+          promo_expiration_date: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast.success('Promo removed successfully');
+      fetchUsers(); // Refresh user list
+    } catch (error) {
+      console.error('Error removing promo:', error);
+      toast.error('Failed to remove promo');
+    }
+  };
+
+  const getPromoDiscount = (promoType: string) => {
+    const discounts = {
+      'founding_member': '3 months for $25',
+      'one_week_trial': '1 week free',
+      'beta_tester': '50% off',
+      'early_adopter': '25% off'
+    };
+    return discounts[promoType as keyof typeof discounts] || promoType;
+  };
+
+  const getDaysRemaining = (expirationDate: string) => {
+    const days = Math.ceil((new Date(expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1567,6 +1647,67 @@ export const UsersPage: React.FC = () => {
                   </CardContent>
                 </Card>
 
+                {/* Promo Management */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Gift className="w-5 h-5" />
+                      Promo Management
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Current Promo</label>
+                        <div className="space-y-1">
+                          {selectedUser.promo_active ? (
+                            <div>
+                              <p className="text-sm font-medium text-green-700">
+                                {getPromoDiscount(selectedUser.promo_type || '')}
+                              </p>
+                              {selectedUser.promo_expiration_date && (
+                                <p className="text-xs text-gray-500">
+                                  Expires: {new Date(selectedUser.promo_expiration_date).toLocaleDateString()}
+                                  ({getDaysRemaining(selectedUser.promo_expiration_date)} days left)
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">No active promo</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Promo Actions</label>
+                        <div className="space-y-2">
+                          <Button 
+                            onClick={() => setShowAddPromo(true)}
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Promo
+                          </Button>
+                          
+                          {selectedUser.promo_active && (
+                            <Button 
+                              onClick={() => handleRemovePromo(selectedUser.id)}
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Remove Promo
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Payment History & Card Information */}
                 <Card>
                   <CardHeader>
@@ -1804,6 +1945,63 @@ export const UsersPage: React.FC = () => {
 
             </div>
           )}
+
+          {/* Add Promo Modal */}
+          <Dialog open={showAddPromo} onOpenChange={setShowAddPromo}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Promo Code</DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Promo Type</label>
+                  <Select 
+                    value={promoForm.type}
+                    onValueChange={(value) => setPromoForm({...promoForm, type: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select promo type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="founding_member">Founding Member (3 months for $25)</SelectItem>
+                      <SelectItem value="one_week_trial">1 Week Trial (Free)</SelectItem>
+                      <SelectItem value="beta_tester">Beta Tester (50% off)</SelectItem>
+                      <SelectItem value="early_adopter">Early Adopter (25% off)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Duration (days)</label>
+                  <Input 
+                    type="number"
+                    value={promoForm.duration_days}
+                    onChange={(e) => setPromoForm({...promoForm, duration_days: parseInt(e.target.value) || 90})}
+                    placeholder="90"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Notes</label>
+                  <Input 
+                    value={promoForm.notes}
+                    onChange={(e) => setPromoForm({...promoForm, notes: e.target.value})}
+                    placeholder="Reason for applying this promo..."
+                  />
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button 
+                  onClick={handleAddPromo}
+                  disabled={loadingPromo || !promoForm.type}
+                >
+                  {loadingPromo ? 'Applying...' : 'Apply Promo'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </DialogContent>
       </Dialog>
     </div>

@@ -123,6 +123,7 @@ export interface AdminStats {
   newsletterSubscribers: number;
   foundingMembers: number;
   recentSignups: number;
+  activePromos: number;
 }
 
 export interface AdminAction {

@@ -11,7 +11,8 @@ import {
   Crown, 
   TrendingUp,
   Calendar,
-  Activity
+  Activity,
+  Gift
 } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
@@ -101,6 +102,14 @@ const AdminDashboard: React.FC = () => {
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
       borderColor: 'border-indigo-200'
+    },
+    {
+      title: 'Active Promos',
+      value: stats?.activePromos || 0,
+      icon: Gift,
+      color: 'text-pink-600',
+      bgColor: 'bg-pink-50',
+      borderColor: 'border-pink-200'
     }
   ];
 
@@ -161,6 +170,10 @@ const AdminDashboard: React.FC = () => {
               <Activity className="h-6 w-6 mb-2" />
               <span>Stripe Events</span>
             </Button>
+            <Button variant="outline" className="h-auto p-4 flex flex-col items-center">
+              <Gift className="h-6 w-6 mb-2" />
+              <span>Promo Management</span>
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -200,6 +213,69 @@ const AdminDashboard: React.FC = () => {
                 </span>
               </div>
               <Badge variant="outline">Revenue</Badge>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">
+                  {stats?.activePromos || 0} active promo codes
+                </span>
+              </div>
+              <Badge variant="outline">Promos</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Promo Management Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gift className="w-5 h-5" />
+            Promo Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <h4 className="font-medium text-gray-900">Quick Actions</h4>
+              <div className="space-y-2">
+                <Button variant="outline" size="sm" className="w-full justify-start">
+                  <Gift className="w-4 h-4 mr-2" />
+                  View All Active Promos
+                </Button>
+                <Button variant="outline" size="sm" className="w-full justify-start">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Expired Promos
+                </Button>
+                <Button variant="outline" size="sm" className="w-full justify-start">
+                  <Activity className="w-4 h-4 mr-2" />
+                  Promo Analytics
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h4 className="font-medium text-gray-900">Promo Types</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Founding Member</span>
+                  <Badge variant="secondary">3 months for $25</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>1 Week Trial</span>
+                  <Badge variant="secondary">Free</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Beta Tester</span>
+                  <Badge variant="secondary">50% off</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Early Adopter</span>
+                  <Badge variant="secondary">25% off</Badge>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
