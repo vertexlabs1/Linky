@@ -114,6 +114,7 @@ export const UsersPage: React.FC = () => {
   const [userPaymentMethods, setUserPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [loadingUserEdit, setLoadingUserEdit] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     first_name: '',
@@ -229,7 +230,7 @@ export const UsersPage: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      setLoadingActions(true);
+      setLoadingUserEdit(true);
       const { error } = await supabase
         .from('users')
         .update({
@@ -259,7 +260,7 @@ export const UsersPage: React.FC = () => {
       console.error('Error updating user:', error);
       toast.error('Failed to update user');
     } finally {
-      setLoadingActions(false);
+      setLoadingUserEdit(false);
     }
   };
 
