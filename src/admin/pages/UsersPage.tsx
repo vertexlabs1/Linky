@@ -621,40 +621,7 @@ export const UsersPage: React.FC = () => {
     }
   };
 
-  const handleManualTransition = async () => {
-    if (!selectedUser) return;
 
-    try {
-      setLoadingStripeSync(true);
-      
-      // Call the transition function
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-founding-member-transitions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({
-          userId: selectedUser.id
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Transition failed: ${errorText}`);
-      }
-
-      const result = await response.json();
-      toast.success(`Transition completed: ${result.successful} successful, ${result.failed} failed`);
-      fetchUsers(); // Refresh the users list
-    } catch (error: any) {
-      console.error('Error triggering transition:', error);
-      toast.error('Failed to trigger transition');
-    } finally {
-      setLoadingStripeSync(false);
-    }
-  };
 
   // Enhanced billing management functions
   const startBillingEdit = () => {
@@ -1774,19 +1741,7 @@ export const UsersPage: React.FC = () => {
                       {loadingPasswordReset ? 'Sending...' : 'Reset Password'}
                     </Button>
 
-                    {/* Founding Member Transition Button */}
-                    {selectedUser.founding_member && !selectedUser.founding_member_transitioned_at && (
-                      <Button 
-                        onClick={handleManualTransition}
-                        disabled={loadingStripeSync}
-                        className="w-full justify-start"
-                        variant="outline"
-                        title="Manually trigger transition to $75/month plan"
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        {loadingStripeSync ? 'Transitioning...' : 'Transition to Prospector'}
-                      </Button>
-                    )}
+
 
                     {selectedUser.stripe_customer_id && (
                       <Button 
