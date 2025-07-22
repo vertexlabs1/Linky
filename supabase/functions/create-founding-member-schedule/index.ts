@@ -65,8 +65,43 @@ serve(async (req) => {
       throw new Error('Failed to create customer');
     }
 
-    // Step 2: Create a simple subscription (sandbox mode - simplified pricing)
-    // For sandbox testing, we'll use a simple monthly subscription instead of complex schedules
+    // Step 2: Create subscription schedule with two phases
+    const schedule = await stripe.subscriptionSchedules.create({
+      customer: customer.id,
+      start_date: 'now',
+      end_behavior: 'release', // After phases, leave them on a standalone subscription
+      phases: [
+        {
+          // Phase 1: Founding member period - $25 for 3 months (1 iteration)
+          items: [
+            { 
+              price: 'price_1RmIXSK06fIw6v4hj3rTDsRj', // $25 every 3 months (schedule price)
+              quantity: 1 
+            }
+          ],
+          iterations: 1, // Run exactly once (so $25 total for 3 months)
+          billing_cycle_anchor: 'phase_start',
+        },
+        {
+          // Phase 2: Regular Prospector pricing - $75/month indefinitely
+          items: [
+            { 
+              price: 'price_1RmIR6K06fIw6v4hEoGab0Ts', // $75 monthly (Prospector)
+              quantity: 1 
+            }
+          ],
+          // No iterations = infinite (continues forever)
+        }
+      ],
+      metadata: {
+        ...metadata,
+        type: 'founding_member_schedule'
+      }
+    });
+
+    console.log('Created subscription schedule:', schedule.id);
+
+    // Step 3: Create checkout session for the subscription schedule
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customer.id,
@@ -77,30 +112,21 @@ serve(async (req) => {
       subscription_data: {
         metadata: {
           ...metadata,
-          type: 'founding_member_sandbox'
+          subscription_schedule_id: schedule.id,
+          type: 'founding_member'
         }
       },
       line_items: [
         {
-          // Use a generic test price - this will create a simple monthly subscription for testing
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Linky Founding Member (Sandbox)',
-              description: 'Founding member access to Linky - Test Mode'
-            },
-            unit_amount: 2500, // $25.00 for testing
-            recurring: {
-              interval: 'month'
-            }
-          },
+          price: 'price_1RmIXSK06fIw6v4hj3rTDsRj', // Start with founding member schedule price
           quantity: 1,
         },
       ],
       metadata: {
         ...metadata,
+        subscription_schedule_id: schedule.id,
         customer_id: customer.id,
-        type: 'founding_member_sandbox'
+        type: 'founding_member_schedule'
       }
     });
 
@@ -109,6 +135,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         url: session.url,
+        scheduleId: schedule.id,
         customerId: customer.id,
         sessionId: session.id 
       }),
