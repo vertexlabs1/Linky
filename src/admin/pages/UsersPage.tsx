@@ -542,12 +542,15 @@ export const UsersPage: React.FC = () => {
       return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
     }
     
-    // New status logic based on payment and password setup
+    // Updated status logic based on payment and password setup
     if (user.founding_member && user.stripe_customer_id) {
-      // User has paid
-      if (!user.password_set && user.status === 'paid') {
+      // User has paid - check if they've set up their account
+      if (user.password_set && user.status === 'active') {
+        return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
+      } else if (!user.password_set && user.status === 'paid') {
         return { text: 'Setup Required', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
-      } else if (user.password_set && user.status === 'active') {
+      } else if (user.password_set && user.status === 'paid') {
+        // Edge case: user set password but status wasn't updated
         return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
       }
     }
@@ -565,6 +568,36 @@ export const UsersPage: React.FC = () => {
       default:
         return { text: 'Unknown', color: 'text-gray-600', icon: <HelpCircle className="w-3 h-3" /> };
     }
+  };
+
+  // New function to get subscription display
+  const getSubscriptionDisplay = (user: User) => {
+    if (user.founding_member) {
+      return {
+        text: 'Founding Member',
+        badge: 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium',
+        icon: '👑'
+      };
+    }
+    
+    // Check for current plan ID first, then fallback to subscription_plan
+    const planId = user.current_plan_id || user.subscription_plan;
+    if (planId && planId !== 'free') {
+      const plan = getPlanById(planId);
+      if (plan) {
+        return {
+          text: plan.name,
+          badge: getSubscriptionBadgeColor(plan.id),
+          icon: ''
+        };
+      }
+    }
+    
+    return {
+      text: 'Free',
+      badge: 'bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-medium',
+      icon: ''
+    };
   };
 
   const filteredUsers = useMemo(() => {
@@ -609,7 +642,7 @@ export const UsersPage: React.FC = () => {
         user.email,
         `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A',
         user.is_admin ? 'Admin' : 'User',
-        user.founding_member ? 'Founding Member' : (user.subscription_plan || 'Free'),
+        getSubscriptionDisplay(user).text,
         user.status,
         new Date(user.created_at).toLocaleDateString()
       ])
@@ -1155,15 +1188,9 @@ export const UsersPage: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="py-5 px-6 text-sm text-gray-700">
-                      {user.founding_member ? (
-                        <Badge className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium">
-                          👑 Founding Member
-                        </Badge>
-                      ) : user.current_plan_id ? (
-                        getPlanById(user.current_plan_id)?.name || 'N/A'
-                      ) : (
-                        'Free'
-                      )}
+                      <Badge className={getSubscriptionDisplay(user).badge}>
+                        {getSubscriptionDisplay(user).icon} {getSubscriptionDisplay(user).text}
+                      </Badge>
                     </td>
                     <td className="py-5 px-6">
                       <Badge
@@ -1705,10 +1732,10 @@ export const UsersPage: React.FC = () => {
                   <CardContent className="space-y-3">
                     <Button 
                       onClick={() => sendWelcomeEmail(selectedUser.email, selectedUser.first_name || 'there', selectedUser.founding_member)}
-                      disabled={loadingEmail || selectedUser.status === 'active'}
+                      disabled={loadingEmail || selectedUser.password_set}
                       className="w-full justify-start"
                       variant="outline"
-                      title={selectedUser.status === 'active' ? 'User has already set up their account' : ''}
+                      title={selectedUser.password_set ? 'User has already set up their account' : ''}
                     >
                       <Send className="w-4 h-4 mr-2" />
                       {loadingEmail ? 'Sending...' : 'Resend Welcome Email'}
