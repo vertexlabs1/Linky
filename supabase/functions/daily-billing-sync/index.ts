@@ -11,7 +11,7 @@ const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
 
 // Initialize Supabase client with service role for full access
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 serve(async (req) => {
