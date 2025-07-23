@@ -546,7 +546,7 @@ export const UsersPage: React.FC = () => {
     if (user.founding_member && user.stripe_customer_id) {
       // User has paid
       if (!user.password_set && user.status === 'paid') {
-        return { text: 'Paid, Account Not Created', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
+        return { text: 'Setup Required', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
       } else if (user.password_set && user.status === 'active') {
         return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
       }
@@ -557,7 +557,7 @@ export const UsersPage: React.FC = () => {
       case 'active':
         return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
       case 'paid':
-        return { text: 'Paid, Account Not Created', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
+        return { text: 'Setup Required', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
       case 'pending':
         return { text: 'Pending', color: 'text-blue-600', icon: <Clock className="w-3 h-3" /> };
       case 'inactive':
@@ -609,7 +609,7 @@ export const UsersPage: React.FC = () => {
         user.email,
         `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A',
         user.is_admin ? 'Admin' : 'User',
-        user.subscription_plan || 'Free',
+        user.founding_member ? 'Founding Member' : (user.subscription_plan || 'Free'),
         user.status,
         new Date(user.created_at).toLocaleDateString()
       ])
@@ -1107,7 +1107,7 @@ export const UsersPage: React.FC = () => {
             <SelectItem value="admins">Admins</SelectItem>
             <SelectItem value="founding_members">Founding Members</SelectItem>
             <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="paid">Paid (No Password)</SelectItem>
+            <SelectItem value="paid">Setup Required</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
@@ -1155,7 +1155,15 @@ export const UsersPage: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="py-5 px-6 text-sm text-gray-700">
-                      {user.current_plan_id ? getPlanById(user.current_plan_id)?.name || 'N/A' : 'Free'}
+                      {user.founding_member ? (
+                        <Badge className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium">
+                          👑 Founding Member
+                        </Badge>
+                      ) : user.current_plan_id ? (
+                        getPlanById(user.current_plan_id)?.name || 'N/A'
+                      ) : (
+                        'Free'
+                      )}
                     </td>
                     <td className="py-5 px-6">
                       <Badge
