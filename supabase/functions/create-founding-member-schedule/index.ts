@@ -6,10 +6,14 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2023-10-16',
 })
 
-// Initialize Supabase client
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+// Initialize Supabase client with hardcoded values for testing
+const supabaseUrl = 'https://jydldvvsxwosyzwttmui.supabase.co'
+const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5ZGxkdnZzeHdvc3l6d3R0bXVpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjY5ODA1MCwiZXhwIjoyMDY4Mjc0MDUwfQ.ueILMQL5TXkfUKfBN7Sc6e1f_eFjVLFVWDGqK-X9H2c'
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+// Get price IDs from environment variables or use defaults
+const FOUNDING_MEMBER_PRICE_ID = Deno.env.get('FOUNDING_MEMBER_PRICE_ID') || 'price_1RmIXSK06fIw6v4hj3rTDsRj'
+const PROSPECTOR_PRICE_ID = Deno.env.get('PROSPECTOR_PRICE_ID') || 'price_1RmIR6K06fIw6v4hEoGab0Ts'
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -28,6 +32,7 @@ serve(async (req) => {
     const { customerEmail, successUrl, cancelUrl, metadata, phone } = await req.json()
 
     console.log('Creating founding member subscription schedule:', { customerEmail, metadata })
+    console.log('Using price IDs:', { FOUNDING_MEMBER_PRICE_ID, PROSPECTOR_PRICE_ID })
 
     // Validate required parameters
     if (!customerEmail) {
@@ -120,9 +125,9 @@ serve(async (req) => {
             email: customerEmail,
             first_name: metadata?.firstName || '',
             last_name: metadata?.lastName || '',
-            phone: phone || null,
+            phone: phone || '',
             stripe_customer_id: customer.id,
-            status: 'pending', // Will be updated to 'active' when payment completes
+            status: 'pending',
             subscription_status: 'inactive',
             subscription_plan: 'Prospector',
             subscription_type: 'founding_member_schedule',
@@ -143,8 +148,7 @@ serve(async (req) => {
       }
     } catch (dbError) {
       console.error('Database error:', dbError);
-      // Continue with Stripe creation even if database fails
-      // The webhook will handle user creation/update when payment completes
+      throw new Error('Failed to create/update user in database');
     }
 
     // Step 3: Create subscription schedule with two phases
@@ -157,7 +161,7 @@ serve(async (req) => {
           // Phase 1: Founding member period - $25 for 3 months (1 iteration)
           items: [
             { 
-              price: 'price_1RmIXSK06fIw6v4hj3rTDsRj', // $25 every 3 months (schedule price)
+              price: FOUNDING_MEMBER_PRICE_ID, // Use environment variable
               quantity: 1 
             }
           ],
@@ -168,7 +172,7 @@ serve(async (req) => {
           // Phase 2: Regular Prospector pricing - $75/month indefinitely
           items: [
             { 
-              price: 'price_1RmIR6K06fIw6v4hEoGab0Ts', // $75 monthly (Prospector)
+              price: PROSPECTOR_PRICE_ID, // Use environment variable
               quantity: 1 
             }
           ],
@@ -202,7 +206,7 @@ serve(async (req) => {
       },
       line_items: [
         {
-          price: 'price_1RmIXSK06fIw6v4hj3rTDsRj', // Start with founding member schedule price
+          price: FOUNDING_MEMBER_PRICE_ID, // Use environment variable
           quantity: 1,
         },
       ],

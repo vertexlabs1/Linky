@@ -182,6 +182,11 @@ export const UsersPage: React.FC = () => {
     founding_member: false
   });
 
+  // Customer recovery state
+  const [showCustomerRecovery, setShowCustomerRecovery] = useState(false);
+  const [problemUsers, setProblemUsers] = useState<User[]>([]);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+
   // Debounced search term
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
@@ -954,6 +959,93 @@ export const UsersPage: React.FC = () => {
     return days > 0 ? days : 0;
   };
 
+  // Customer recovery functions
+  const findProblemUsers = async () => {
+    setRecoveryLoading(true);
+    try {
+      const response = await fetch('https://jydldvvsxwosyzwttmui.supabase.co/functions/v1/customer-recovery', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'list' }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setProblemUsers(data.problemUsers);
+        setShowCustomerRecovery(true);
+        toast.success(`Found ${data.count} customers who paid but cannot access service`);
+      } else {
+        toast.error('Failed to find problem users');
+      }
+    } catch (error) {
+      console.error('Error finding problem users:', error);
+      toast.error('Failed to find problem users');
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const recoverCustomer = async (email: string) => {
+    setRecoveryLoading(true);
+    try {
+      const response = await fetch('https://jydldvvsxwosyzwttmui.supabase.co/functions/v1/customer-recovery', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'recover', email }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`Successfully recovered customer: ${email}`);
+        // Refresh the problem users list
+        findProblemUsers();
+        // Refresh the main users list
+        fetchUsers();
+      } else {
+        toast.error(`Failed to recover customer: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error recovering customer:', error);
+      toast.error('Failed to recover customer');
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const generatePasswordLink = async (email: string) => {
+    setRecoveryLoading(true);
+    try {
+      const response = await fetch('https://jydldvvsxwosyzwttmui.supabase.co/functions/v1/manual-password-setup-email', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Copy the password setup URL to clipboard
+        navigator.clipboard.writeText(data.passwordSetupUrl);
+        toast.success(`Password setup link copied to clipboard for ${email}`);
+      } else {
+        toast.error(`Failed to generate password link: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error generating password link:', error);
+      toast.error('Failed to generate password link');
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -962,6 +1054,15 @@ export const UsersPage: React.FC = () => {
           <p className="text-gray-600 mt-2">Manage all users and their subscriptions</p>
         </div>
         <div className="flex gap-3">
+          <Button 
+            onClick={findProblemUsers} 
+            variant="outline" 
+            className="flex items-center gap-2"
+            disabled={recoveryLoading}
+          >
+            <RefreshCw className={`w-4 h-4 ${recoveryLoading ? 'animate-spin' : ''}`} />
+            Customer Recovery
+          </Button>
           <Button onClick={exportUsers} variant="outline" className="flex items-center gap-2">
             <Download className="w-4 h-4" />
             Export
@@ -2017,6 +2118,83 @@ export const UsersPage: React.FC = () => {
               disabled={loadingPromo || !promoForm.type}
             >
               {loadingPromo ? 'Applying...' : 'Apply Promo'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Recovery Modal */}
+      <Dialog open={showCustomerRecovery} onOpenChange={setShowCustomerRecovery}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-500" />
+              Customer Recovery
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <p className="text-sm text-orange-800">
+                <strong>Found {problemUsers.length} customers who paid but cannot access the service.</strong>
+                <br />
+                These customers completed payment but the webhook failed to create their auth user.
+              </p>
+            </div>
+
+            {problemUsers.length > 0 ? (
+              <div className="space-y-3">
+                {problemUsers.map((user) => (
+                  <div key={user.id} className="border rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">
+                          {user.first_name} {user.last_name}
+                        </h4>
+                        <p className="text-sm text-gray-600">{user.email}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                          <span>Status: {user.status}</span>
+                          <span>Plan: {user.subscription_plan}</span>
+                          <span>Joined: {new Date(user.created_at).toLocaleDateString()}</span>
+                          {user.founding_member && (
+                            <Badge variant="outline" className="text-xs">Founding Member</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => recoverCustomer(user.email)}
+                          disabled={recoveryLoading}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {recoveryLoading ? 'Recovering...' : 'Recover Customer'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => generatePasswordLink(user.email)}
+                          disabled={recoveryLoading}
+                        >
+                          {recoveryLoading ? 'Generating...' : 'Get Password Link'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
+                <p>No customers need recovery!</p>
+                <p className="text-sm">All customers who paid have access to the service.</p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCustomerRecovery(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
