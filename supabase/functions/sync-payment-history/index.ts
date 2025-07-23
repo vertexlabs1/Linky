@@ -165,19 +165,24 @@ serve(async (req) => {
 
     // Upsert transactions to database
     if (transactions.length > 0) {
-      const { error: upsertError } = await supabase
-        .from('transactions')
-        .upsert(transactions, { 
-          onConflict: 'stripe_payment_intent_id,stripe_charge_id,stripe_invoice_id',
-          ignoreDuplicates: false 
-        })
+      // Use individual upserts to handle NULL values properly
+      for (const transaction of transactions) {
+        try {
+          const { error: upsertError } = await supabase
+            .from('transactions')
+            .upsert(transaction, { 
+              onConflict: transaction.stripe_payment_intent_id ? 'stripe_payment_intent_id' :
+                         transaction.stripe_charge_id ? 'stripe_charge_id' :
+                         transaction.stripe_invoice_id ? 'stripe_invoice_id' : 'id',
+              ignoreDuplicates: false 
+            })
 
-      if (upsertError) {
-        console.error('❌ Error upserting transactions:', upsertError)
-        return new Response(
-          JSON.stringify({ error: 'Failed to sync transactions', details: upsertError }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+          if (upsertError) {
+            console.error('❌ Error upserting transaction:', upsertError, transaction)
+          }
+        } catch (error) {
+          console.error('❌ Error in transaction upsert:', error, transaction)
+        }
       }
     }
 
