@@ -576,7 +576,7 @@ export const UsersPage: React.FC = () => {
       return {
         text: 'Founding Member',
         badge: 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium',
-        icon: '👑'
+        icon: ''
       };
     }
     
