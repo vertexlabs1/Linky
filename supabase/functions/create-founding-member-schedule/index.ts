@@ -19,8 +19,8 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 // Get price IDs from environment variables or use defaults
-const FOUNDING_MEMBER_PRICE_ID = Deno.env.get('FOUNDING_MEMBER_PRICE_ID') || 'price_1RmIXSK06fIw6v4hj3rTDsRj'
-const PROSPECTOR_PRICE_ID = Deno.env.get('PROSPECTOR_PRICE_ID') || 'price_1RmIR6K06fIw6v4hEoGab0Ts'
+const FOUNDING_MEMBER_PRICE_ID = Deno.env.get('FOUNDING_MEMBER_PRICE_ID') || 'price_1Ro7sWGgWLKrksJxAcAand1o'
+const PROSPECTOR_PRICE_ID = Deno.env.get('PROSPECTOR_PRICE_ID') || 'price_1Rlz4pGgWLKrksJxExadkxnL'
 
 serve(async (req) => {
   // Handle CORS preflight requests
