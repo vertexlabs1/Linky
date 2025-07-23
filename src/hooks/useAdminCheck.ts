@@ -30,28 +30,21 @@ export const useAdminCheck = () => {
           return;
         }
 
-        // Check if user has admin role
-        const { data: userRoles, error: rolesError } = await supabase
-          .from('user_roles')
-          .select(`
-            active,
-            roles(name)
-          `)
-          .eq('user_id', dbUser.id)
-          .eq('active', true);
+        // Check if user has admin role using is_admin boolean
+        const { data: userWithAdmin, error: adminError } = await supabase
+          .from('users')
+          .select('is_admin')
+          .eq('id', dbUser.id)
+          .single();
 
-        if (rolesError) {
-          console.error('Error checking roles:', rolesError);
+        if (adminError) {
+          console.error('Error checking admin status:', adminError);
           setIsAdmin(false);
           setLoading(false);
           return;
         }
 
-        const hasAdminRole = userRoles.some((ur: any) => 
-          ur.active && ur.roles?.name === 'admin'
-        );
-
-        setIsAdmin(hasAdminRole);
+        setIsAdmin(userWithAdmin?.is_admin === true);
         setLoading(false);
 
       } catch (error) {
@@ -65,4 +58,4 @@ export const useAdminCheck = () => {
   }, []);
 
   return { isAdmin, loading };
-}; 
+};

@@ -46,29 +46,10 @@ export const useAdminAuth = () => {
         console.log('✅ User found:', dbUser.email);
         setUser(dbUser);
 
-        // Check if user has admin role
-        const { data: userRoles, error: rolesError } = await supabase
-          .from('user_roles')
-          .select(`
-            active,
-            roles(name)
-          `)
-          .eq('user_id', dbUser.id)
-          .eq('active', true);
-
-        console.log('Roles check:', { userRoles: userRoles?.length, rolesError });
-
-        if (rolesError) {
-          console.error('Error checking roles:', rolesError);
-          setShowLogin(true);
-          setLoading(false);
-          return;
-        }
-
-        const hasAdminRole = userRoles.some((role: any) => role.roles?.name === 'admin');
-        console.log('Admin role check:', hasAdminRole);
+        // Check if user has admin role using is_admin boolean
+        console.log('Admin check:', { is_admin: dbUser.is_admin });
         
-        if (!hasAdminRole) {
+        if (!dbUser.is_admin) {
           console.log('❌ User does not have admin role, showing login form');
           setShowLogin(true);
           setLoading(false);
@@ -104,4 +85,4 @@ export const useAdminAuth = () => {
     showLogin,
     signOut
   };
-}; 
+};
