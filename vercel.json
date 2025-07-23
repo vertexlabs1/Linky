@@ -11,8 +11,8 @@
   ],
   "env": {
     "VITE_SUPABASE_URL": "https://jydldvvsxwosyzwttmui.supabase.co",
-          "VITE_SUPABASE_ANON_KEY": "your_supabase_anon_key_here",
-      "VITE_STRIPE_PUBLISHABLE_KEY": "your_stripe_publishable_key_here",
-          "FROM_EMAIL": "team@uselinky.app"
+    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5ZGxkdnZzeHdvc3l6d3R0bXVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTgwNTAsImV4cCI6MjA2ODI3NDA1MH0.kt8G6d6ZlqxgpU4HFg_vDDBg-0FlozNF4XUq9bf22uw",
+    "VITE_STRIPE_PUBLISHABLE_KEY": "pk_test_51RlcEWGgWLKrksJxrWfvsZRIEULa9Ax59echHsFsJ0X91ws2aR3ygGNRhsHGwvDQovgBCEfybqAeCNa5mgBeLj0900qZVLLrNT",
+    "FROM_EMAIL": "team@uselinky.app"
   }
 }
