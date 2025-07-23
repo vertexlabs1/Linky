@@ -62,6 +62,7 @@ interface User {
   founding_member_transition_plan_id?: string;
   is_admin?: boolean;
   status: string;
+  password_set?: boolean;
   last_sync_at?: string;
   created_at: string;
   billing_name?: string;
@@ -106,7 +107,7 @@ export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'admins' | 'founding_members' | 'active' | 'inactive'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'admins' | 'founding_members' | 'active' | 'paid' | 'pending' | 'inactive'>('all');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -541,19 +542,26 @@ export const UsersPage: React.FC = () => {
       return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
     }
     
-    // Users who have paid but haven't set password
-    if (user.founding_member && user.status === 'inactive') {
-      return { text: 'Paid, Account Not Created', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
+    // New status logic based on payment and password setup
+    if (user.founding_member && user.stripe_customer_id) {
+      // User has paid
+      if (!user.password_set && user.status === 'paid') {
+        return { text: 'Paid, Account Not Created', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
+      } else if (user.password_set && user.status === 'active') {
+        return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
+      }
     }
     
     // Regular status mapping
     switch (user.status) {
       case 'active':
         return { text: 'Active', color: 'text-green-600', icon: <CheckCircle className="w-3 h-3" /> };
-      case 'inactive':
-        return { text: 'Inactive', color: 'text-red-600', icon: <XCircle className="w-3 h-3" /> };
+      case 'paid':
+        return { text: 'Paid, Account Not Created', color: 'text-orange-600', icon: <AlertTriangle className="w-3 h-3" /> };
       case 'pending':
         return { text: 'Pending', color: 'text-blue-600', icon: <Clock className="w-3 h-3" /> };
+      case 'inactive':
+        return { text: 'Inactive', color: 'text-red-600', icon: <XCircle className="w-3 h-3" /> };
       default:
         return { text: 'Unknown', color: 'text-gray-600', icon: <HelpCircle className="w-3 h-3" /> };
     }
@@ -579,6 +587,12 @@ export const UsersPage: React.FC = () => {
         break;
       case 'active':
         filtered = filtered.filter(user => user.status === 'active');
+        break;
+      case 'paid':
+        filtered = filtered.filter(user => user.status === 'paid');
+        break;
+      case 'pending':
+        filtered = filtered.filter(user => user.status === 'pending');
         break;
       case 'inactive':
         filtered = filtered.filter(user => user.status === 'inactive');
@@ -1093,6 +1107,8 @@ export const UsersPage: React.FC = () => {
             <SelectItem value="admins">Admins</SelectItem>
             <SelectItem value="founding_members">Founding Members</SelectItem>
             <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="paid">Paid (No Password)</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
