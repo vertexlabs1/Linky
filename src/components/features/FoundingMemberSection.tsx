@@ -109,7 +109,7 @@ const FoundingMemberSection = () => {
                 <div className="text-4xl font-bold text-foreground mb-2">$50</div>
                 <p className="text-muted-foreground text-lg">One-time payment</p>
                 <div className="text-sm text-muted-foreground mt-2">
-                  <span className="line-through">$75/month</span>
+                  <span className="line-through">$199/month</span>
                   <span className="font-medium text-primary ml-2">$50 for 3 months</span>
                 </div>
               </div>
@@ -135,6 +135,12 @@ const FoundingMemberSection = () => {
                     <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
                     <span className="text-sm">Private dev roadmap & community</span>
                   </div>
+                </div>
+                <div className="text-center mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-xs text-yellow-800">
+                    ⭐ <strong>Important:</strong> Founding members get access to features as they roll out in real-time. 
+                    Features are not guaranteed to be available immediately and will be released progressively.
+                  </p>
                 </div>
               </div>
               <div className="text-center">

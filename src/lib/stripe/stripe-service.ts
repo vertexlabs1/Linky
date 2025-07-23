@@ -143,7 +143,7 @@ export const PLAN_TIERS = {
     name: 'Founding Member',
     price: 25, // Special founding member price
     priceId: PRICE_IDS.FOUNDING_MEMBER,
-            description: '$50 for 3 months, then $75/month',
+            description: '$50 for 3 months, then $75/month (vs $199 regular)',
     emoji: '👑',
     color: 'yellow',
     features: [
