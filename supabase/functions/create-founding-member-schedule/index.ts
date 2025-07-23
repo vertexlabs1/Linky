@@ -36,7 +36,31 @@ serve(async (req) => {
   }
 
   try {
-    const { customerEmail, successUrl, cancelUrl, metadata, phone } = await req.json()
+    // Add debugging for request body
+    const requestText = await req.text();
+    console.log('Raw request body:', requestText);
+    
+    let requestData;
+    try {
+      requestData = JSON.parse(requestText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON in request body',
+          details: parseError.message
+        }),
+        { 
+          status: 400, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          } 
+        }
+      );
+    }
+    
+    const { customerEmail, successUrl, cancelUrl, metadata, phone } = requestData;
 
     console.log('Creating founding member subscription schedule:', { customerEmail, metadata })
     console.log('Using price IDs:', { FOUNDING_MEMBER_PRICE_ID, PROSPECTOR_PRICE_ID })
@@ -190,15 +214,14 @@ serve(async (req) => {
         end_behavior: 'release', // After phases, leave them on a standalone subscription
         phases: [
           {
-            // Phase 1: Founding member period - $50 upfront + 90-day trial period
+            // Phase 1: Founding member period - $50 for 3 months
             items: [
               { 
-                price: FOUNDING_MEMBER_PRICE_ID, // $50/month price (charged once)
+                price: FOUNDING_MEMBER_PRICE_ID, // $50/month price
                 quantity: 1 
               }
             ],
-            trial_period_days: 90, // 3 months free after $50 payment
-            iterations: 1, // Only charge once (so $50 total for 3 months)
+            iterations: 3, // Charge $50 for 3 months
             billing_cycle_anchor: 'phase_start',
           },
           {
