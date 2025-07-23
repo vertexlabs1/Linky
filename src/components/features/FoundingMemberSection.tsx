@@ -139,7 +139,7 @@ const FoundingMemberSection = () => {
               </div>
               <div className="text-center">
                 <div className="text-foreground font-bold text-lg mb-2">Only 40 founding spots</div>
-                <p className="text-sm text-muted-foreground mb-4">No auto-renewal</p>
+                <p className="text-sm text-muted-foreground mb-4">with auto renewal</p>
                 <Button 
                   className="w-full py-3 text-base font-medium bg-primary hover:bg-primary/90 text-primary-foreground transform hover:scale-105 transition-all duration-200"
                   onClick={handleFoundingMemberSignup}
