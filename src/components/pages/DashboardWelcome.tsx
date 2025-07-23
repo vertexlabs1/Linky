@@ -207,7 +207,7 @@ const DashboardWelcome = () => {
           </p>
                      <div className="bg-white/60 rounded-lg p-4">
              <p className="text-blue-700 font-medium">
-               As a founding member, you paid just $25 for your first 3 months. After that, you'll automatically upgrade to our Prospector plan for $75/month.
+               As a founding member, you paid just $50 for your first 3 months. After that, you'll automatically upgrade to our Prospector plan for $75/month.
              </p>
            </div>
         </div>

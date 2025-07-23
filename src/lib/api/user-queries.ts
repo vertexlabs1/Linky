@@ -138,7 +138,7 @@ export const getUserPaymentInfo = async () => {
       ...data,
       isFoundingMember: true,
       hasSubscriptionSchedule: !!data.stripe_subscription_schedule_id,
-      planDetails: 'Founding Member: $25 for 3 months, then $75/month'
+              planDetails: 'Founding Member: $50 for 3 months, then $75/month'
     };
   }
 

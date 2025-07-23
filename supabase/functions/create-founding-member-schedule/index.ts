@@ -190,21 +190,22 @@ serve(async (req) => {
         end_behavior: 'release', // After phases, leave them on a standalone subscription
         phases: [
           {
-            // Phase 1: Founding member period - $25 for 3 months (1 iteration)
+            // Phase 1: Founding member period - $50 upfront + 90-day trial period
             items: [
               { 
-                price: FOUNDING_MEMBER_PRICE_ID, // Use environment variable
+                price: FOUNDING_MEMBER_PRICE_ID, // $50/month price (charged once)
                 quantity: 1 
               }
             ],
-            iterations: 1, // Run exactly once (so $25 total for 3 months)
+            trial_period_days: 90, // 3 months free after $50 payment
+            iterations: 1, // Only charge once (so $50 total for 3 months)
             billing_cycle_anchor: 'phase_start',
           },
           {
             // Phase 2: Regular Prospector pricing - $75/month indefinitely
             items: [
               { 
-                price: PROSPECTOR_PRICE_ID, // Use environment variable
+                price: PROSPECTOR_PRICE_ID, // $75/month
                 quantity: 1 
               }
             ],
@@ -262,6 +263,11 @@ serve(async (req) => {
             .update({
               stripe_session_id: session.id,
               stripe_subscription_schedule_id: schedule.id,
+              founding_member_purchased_at: new Date().toISOString(),
+              founding_member_transition_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+              subscription_plan: 'Founding Member',
+              subscription_status: 'active',
+              founding_member: true,
               updated_at: new Date().toISOString()
             })
             .eq('id', userId);

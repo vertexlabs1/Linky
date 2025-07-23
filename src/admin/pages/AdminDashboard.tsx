@@ -261,7 +261,7 @@ const AdminDashboard: React.FC = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Founding Member</span>
-                  <Badge variant="secondary">3 months for $25</Badge>
+                                      <Badge variant="secondary">3 months for $50</Badge>
                 </div>
                 <div className="flex justify-between">
                   <span>1 Week Trial</span>

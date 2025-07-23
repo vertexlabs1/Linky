@@ -317,7 +317,7 @@ const Settings = () => {
         status: 'Active',
         billingCycle: '3 Months Special',
         nextBilling: 'Auto-upgrade to Prospector ($75/month)',
-        price: '$25 (3 months)',
+        price: '$50 (3 months)',
         features: [
           'Early access to all features',
           'Special founding member pricing',
@@ -349,7 +349,7 @@ const Settings = () => {
     {
       date: user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Jan 15, 2024',
       description: 'Founding Member - 3 Month Special',
-      amount: '$25.00',
+              amount: '$50.00',
       status: 'Paid',
       invoice: 'FM-2024-001'
     }

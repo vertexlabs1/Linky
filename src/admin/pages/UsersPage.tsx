@@ -993,7 +993,7 @@ export const UsersPage: React.FC = () => {
 
   const getPromoDiscount = (promoType: string) => {
     const discounts = {
-      'founding_member': '3 months for $25',
+              'founding_member': '3 months for $50',
       'one_week_trial': '1 week free',
       'beta_tester': '50% off',
       'early_adopter': '25% off'
@@ -1816,7 +1816,7 @@ export const UsersPage: React.FC = () => {
                                 </p>
                               ) : (
                                 <p className="text-sm text-gray-600">
-                                  <span className="font-medium">Founding Member ($25 for 3 months)</span>
+                                  <span className="font-medium">Founding Member ($50 for 3 months)</span>
                                   <br />
                                   <span className="text-xs text-gray-500">
                                     Purchased {selectedUser.founding_member_purchased_at ? new Date(selectedUser.founding_member_purchased_at).toLocaleDateString() : 'N/A'}
@@ -2135,7 +2135,7 @@ export const UsersPage: React.FC = () => {
                   <SelectValue placeholder="Select promo type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="founding_member">Founding Member (3 months for $25)</SelectItem>
+                                          <SelectItem value="founding_member">Founding Member (3 months for $50)</SelectItem>
                   <SelectItem value="one_week_trial">1 Week Trial (Free)</SelectItem>
                   <SelectItem value="beta_tester">Beta Tester (50% off)</SelectItem>
                   <SelectItem value="early_adopter">Early Adopter (25% off)</SelectItem>

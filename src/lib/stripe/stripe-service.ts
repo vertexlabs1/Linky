@@ -62,8 +62,8 @@ export const createCustomerPortalSession = async (customerId: string, returnUrl:
 
 // PRODUCTION STRIPE PRICE IDS - Updated for bulletproof billing
 export const PRICE_IDS = {
-  // Founding Member pricing - $25 for 3 months via subscription schedule
-  FOUNDING_MEMBER: 'price_1RmIXSK06fIw6v4hj3rTDsRj', // $25 every 3 months (1 iteration only)
+      // Founding Member pricing - $50 for 3 months via subscription schedule
+    FOUNDING_MEMBER: 'price_1RmIXSK06fIw6v4hj3rTDsRj', // $50 every 3 months (1 iteration only)
   
   // Regular subscription tiers
   PROSPECTOR: 'price_1RmIR6K06fIw6v4hEoGab0Ts', // $75/month 
@@ -143,7 +143,7 @@ export const PLAN_TIERS = {
     name: 'Founding Member',
     price: 25, // Special founding member price
     priceId: PRICE_IDS.FOUNDING_MEMBER,
-    description: '$25 for 3 months, then $75/month',
+            description: '$50 for 3 months, then $75/month',
     emoji: '👑',
     color: 'yellow',
     features: [

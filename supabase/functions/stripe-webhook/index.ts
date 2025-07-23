@@ -520,8 +520,10 @@ async function handleSubscriptionScheduleReleased(schedule: any) {
     const { error: updateError } = await supabase
       .from('users')
       .update({ 
+        subscription_plan: 'Prospector',
         subscription_type: 'regular_monthly',
         subscription_status: 'active',
+        founding_member_transitioned_at: new Date().toISOString(),
         // Keep founding_member = true but update billing type
         updated_at: new Date().toISOString()
       })

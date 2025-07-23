@@ -106,11 +106,11 @@ const FoundingMemberSection = () => {
                 </Badge>
               </div>
               <div className="text-center mb-8">
-                <div className="text-4xl font-bold text-foreground mb-2">$25</div>
+                <div className="text-4xl font-bold text-foreground mb-2">$50</div>
                 <p className="text-muted-foreground text-lg">One-time payment</p>
                 <div className="text-sm text-muted-foreground mt-2">
                   <span className="line-through">$75/month</span>
-                  <span className="font-medium text-primary ml-2">$25 for 3 months</span>
+                  <span className="font-medium text-primary ml-2">$50 for 3 months</span>
                 </div>
               </div>
               <div className="space-y-4 mb-8">

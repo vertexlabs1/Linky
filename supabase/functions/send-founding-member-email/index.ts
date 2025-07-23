@@ -375,7 +375,7 @@ serve(async (req) => {
                   <span class="benefit-icon">💰</span>
                   <div>
                     <strong>Special Founding Member Pricing</strong><br>
-                    <span style="color: #6b7280;">Just $25 for 3 months - that's over 80% off our regular pricing!</span>
+                    <span style="color: #6b7280;">Just $50 for 3 months - that's over 80% off our regular pricing!</span>
                   </div>
                 </div>
                 

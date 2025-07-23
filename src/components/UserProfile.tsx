@@ -209,7 +209,7 @@ const UserProfile = () => {
         status: 'Active',
         billingCycle: 'Lifetime',
         nextBilling: 'N/A - Lifetime Access',
-        price: '$25 (One-time)',
+        price: '$50 (One-time)',
         features: [
           'Early access to all features',
           'Lifetime 62% discount',
@@ -240,7 +240,7 @@ const UserProfile = () => {
     {
       date: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '2024-01-15',
       description: 'Founding Member - Lifetime Access',
-      amount: '$25.00',
+              amount: '$50.00',
       status: 'Paid'
     }
   ] : [];
