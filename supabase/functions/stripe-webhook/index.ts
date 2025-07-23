@@ -37,10 +37,22 @@ serve(async (req) => {
 
   try {
     const body = await req.text()
-    console.log('Received webhook body:', body.substring(0, 200) + '...')
+    console.log('📥 Received webhook body:', body.substring(0, 200) + '...')
     
     const signature = req.headers.get('stripe-signature')
-    console.log('Received signature:', signature)
+    console.log('🔐 Received signature:', signature ? 'Present' : 'Missing')
+    
+    // Log webhook event for monitoring
+    try {
+      const eventData = JSON.parse(body)
+      console.log('📊 Webhook Event Details:')
+      console.log('   - Type:', eventData.type)
+      console.log('   - ID:', eventData.id)
+      console.log('   - Created:', eventData.created)
+      console.log('   - API Version:', eventData.api_version)
+    } catch (parseError) {
+      console.log('⚠️ Could not parse webhook body for logging')
+    }
     
     // Temporarily bypass signature verification for testing
     let event;
@@ -70,7 +82,7 @@ serve(async (req) => {
       }
     }
 
-    console.log('Processing event type:', event.type)
+    console.log('🔄 Processing event type:', event.type)
 
     // Handle different webhook events
     switch (event.type) {
@@ -258,9 +270,12 @@ async function handleCheckoutCompleted(session: any) {
   }
 
   // Send appropriate welcome email
+  console.log('📧 Determining email type based on metadata:', metadata)
   if (metadata.type === 'founding_member_schedule' || metadata.type === 'founding_member') {
+    console.log('🎯 Sending founding member welcome email...')
     await sendFoundingMemberWelcomeEmail(session, metadata)
   } else {
+    console.log('📧 Sending regular welcome email...')
     await sendRegularWelcomeEmail(session, metadata)
   }
 }
@@ -274,10 +289,14 @@ async function sendFoundingMemberWelcomeEmail(session: any, metadata: any) {
     const sessionId = session.id
     
     // Call the dedicated founding member email function
-    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-founding-member-email`, {
+    console.log('📧 Calling send-founding-member-email function...')
+    const emailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-founding-member-email`
+    console.log('📧 Email function URL:', emailUrl)
+    
+    const response = await fetch(emailUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('SERVICE_ROLE_KEY')}`,
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -287,14 +306,165 @@ async function sendFoundingMemberWelcomeEmail(session: any, metadata: any) {
       })
     })
     
+    console.log('📧 Email function response status:', response.status)
+    
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('❌ Failed to send founding member email:', errorText)
+      console.error('❌ Failed to send founding member email via function:', errorText)
+      console.error('❌ Response status:', response.status)
+      console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()))
+      
+      // FALLBACK: Send email directly using Resend
+      console.log('🔄 Attempting fallback email send...')
+      await sendFoundingMemberEmailDirect(session.customer_details.email, firstName, sessionId)
     } else {
-      console.log('✅ Founding member welcome email sent successfully')
+      const result = await response.json()
+      console.log('✅ Founding member welcome email sent successfully:', result)
     }
   } catch (error) {
     console.error('❌ Error sending founding member welcome email:', error)
+    
+    // FALLBACK: Send email directly using Resend
+    console.log('🔄 Attempting fallback email send after error...')
+    try {
+      const firstName = metadata.firstName || session.customer_details?.email?.split('@')[0] || 'there'
+      await sendFoundingMemberEmailDirect(session.customer_details.email, firstName, session.id)
+    } catch (fallbackError) {
+      console.error('❌ Fallback email also failed:', fallbackError)
+    }
+  }
+}
+
+// Fallback function to send founding member email directly
+async function sendFoundingMemberEmailDirect(email: string, firstName: string, sessionId: string) {
+  try {
+    console.log('📧 Sending founding member email directly via Resend...')
+    
+    // Generate password setup link
+    const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: email,
+      options: {
+        redirectTo: 'https://www.uselinky.app/setup-password'
+      }
+    })
+
+    if (resetError) {
+      console.error('❌ Failed to generate reset link:', resetError)
+      throw resetError
+    }
+
+    let passwordSetupUrl = resetData.properties.action_link
+    
+    // Send email directly via Resend
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'Linky Team <hello@uselinky.app>',
+        to: email,
+        subject: '👑 YOU\'RE A LINKY FOUNDING MEMBER! 🚀',
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Welcome to Linky - Founding Member!</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                margin: 0;
+                padding: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+              }
+              .container { 
+                max-width: 600px; 
+                margin: 0 auto; 
+                background: white; 
+                border-radius: 20px; 
+                overflow: hidden; 
+                box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+                position: relative;
+                z-index: 1;
+              }
+              .header { 
+                background: linear-gradient(135deg, #1f2937 0%, #374151 100%); 
+                padding: 50px 30px; 
+                text-align: center; 
+                color: white;
+              }
+              .content { 
+                padding: 50px 30px; 
+              }
+              .welcome-text {
+                font-size: 32px;
+                font-weight: 800;
+                color: #1f2937;
+                margin-bottom: 30px;
+                text-align: center;
+              }
+              .cta-button { 
+                display: inline-block; 
+                background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); 
+                color: #1f2937; 
+                padding: 20px 40px; 
+                text-decoration: none; 
+                border-radius: 50px; 
+                font-weight: 700; 
+                font-size: 18px;
+                margin: 20px 0;
+                text-align: center;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1 style="font-size: 36px; margin: 0;">👑 Linky</h1>
+                <p style="font-size: 18px; opacity: 0.9; margin: 10px 0 0 0;">Founding Member Exclusive</p>
+              </div>
+              
+              <div class="content">
+                <h1 class="welcome-text">CONGRATULATIONS, ${firstName}! 🚀</h1>
+                
+                <p style="font-size: 18px; color: #6b7280; margin-bottom: 35px; line-height: 1.8; text-align: center;">
+                  <strong>WOW! 🎉</strong> You're officially a <strong>FOUNDING MEMBER</strong> of Linky!
+                </p>
+                
+                <div style="text-align: center; margin: 40px 0;">
+                  <a href="${passwordSetupUrl}" class="cta-button">
+                    🎯 SET UP MY ACCOUNT NOW
+                  </a>
+                </div>
+                
+                <p style="font-size: 14px; color: #6b7280; text-align: center;">
+                  This link will expire in 24 hours for security.
+                </p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+      }),
+    })
+
+    if (!resendResponse.ok) {
+      const errorText = await resendResponse.text()
+      console.error('❌ Fallback email failed:', errorText)
+      throw new Error(`Resend API error: ${resendResponse.status} ${errorText}`)
+    }
+
+    console.log('✅ Fallback founding member email sent successfully')
+  } catch (error) {
+    console.error('❌ Fallback email function error:', error)
+    throw error
   }
 }
 
