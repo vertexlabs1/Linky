@@ -18,10 +18,6 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Get price IDs from environment variables or use defaults
-const FOUNDING_MEMBER_PRICE_ID = Deno.env.get('FOUNDING_MEMBER_PRICE_ID') || 'price_1Ro7sWGgWLKrksJxAcAand1o'
-const PROSPECTOR_PRICE_ID = Deno.env.get('PROSPECTOR_PRICE_ID') || 'price_1Rlz4pGgWLKrksJxExadkxnL'
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -62,8 +58,7 @@ serve(async (req) => {
     
     const { customerEmail, successUrl, cancelUrl, metadata, phone } = requestData;
 
-    console.log('Creating founding member subscription schedule:', { customerEmail, metadata })
-    console.log('Using price IDs:', { FOUNDING_MEMBER_PRICE_ID, PROSPECTOR_PRICE_ID })
+    console.log('Creating founding member one-time payment:', { customerEmail, metadata })
     console.log('Stripe secret key exists:', !!stripeSecretKey)
 
     // Validate required parameters
@@ -150,8 +145,8 @@ serve(async (req) => {
             phone: phone || existingUser.phone,
             status: 'pending', // Will be updated to 'active' when payment completes
             subscription_status: 'inactive',
-            subscription_plan: 'Prospector',
-            subscription_type: 'founding_member_schedule',
+            subscription_plan: 'Founding Member',
+            subscription_type: 'founding_member_one_time',
             founding_member: true,
             updated_at: new Date().toISOString()
           })
@@ -177,8 +172,8 @@ serve(async (req) => {
           stripe_customer_id: customer.id,
           status: 'pending',
           subscription_status: 'inactive',
-          subscription_plan: 'Prospector',
-          subscription_type: 'founding_member_schedule',
+          subscription_plan: 'Founding Member',
+          subscription_type: 'founding_member_one_time',
           founding_member: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -205,110 +200,72 @@ serve(async (req) => {
       throw new Error(`Failed to create/update user in database: ${dbError.message}`);
     }
 
-    // Step 3: Create subscription schedule with two phases
-    console.log('📅 Creating subscription schedule...')
+    // Step 3: Create one-time payment checkout session
+    console.log('🛒 Creating one-time payment checkout session...')
     try {
-      const schedule = await stripe.subscriptionSchedules.create({
-        customer: customer.id,
-        start_date: 'now',
-        end_behavior: 'release', // After phases, leave them on a standalone subscription
-        phases: [
-          {
-            // Phase 1: Founding member period - $50 for 3 months
-            items: [
-              { 
-                price: FOUNDING_MEMBER_PRICE_ID, // $50/month price
-                quantity: 1 
-              }
-            ],
-            iterations: 3, // Charge $50 for 3 months
-            billing_cycle_anchor: 'phase_start',
-          },
-          {
-            // Phase 2: Regular Prospector pricing - $75/month indefinitely
-            items: [
-              { 
-                price: PROSPECTOR_PRICE_ID, // $75/month
-                quantity: 1 
-              }
-            ],
-            // No iterations = infinite (continues forever)
-          }
-        ],
-        metadata: {
-          ...metadata,
-          type: 'founding_member_schedule',
-          user_id: userId // Include user ID for webhook processing
-        }
-      });
-
-      console.log('✅ Created subscription schedule:', schedule.id);
-
-      // Step 4: Create checkout session for the subscription schedule
-      console.log('🛒 Creating checkout session...')
       const session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
+        mode: 'payment', // One-time payment, not subscription
         customer: customer.id,
         success_url: successUrl,
         cancel_url: cancelUrl,
         billing_address_collection: 'required',
-        allow_promotion_codes: true, // This enables coupon support!
-        subscription_data: {
-          metadata: {
-            ...metadata,
-            subscription_schedule_id: schedule.id,
-            type: 'founding_member',
-            user_id: userId // Include user ID for webhook processing
-          }
-        },
+        allow_promotion_codes: true,
         line_items: [
           {
-            price: FOUNDING_MEMBER_PRICE_ID, // Use environment variable
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: 'Linky Founding Member - 3 Months Access',
+                description: 'Special 3-month founding member access to Linky',
+              },
+              unit_amount: 5000, // $50.00 in cents
+            },
             quantity: 1,
           },
         ],
         metadata: {
           ...metadata,
-          subscription_schedule_id: schedule.id,
           customer_id: customer.id,
-          user_id: userId, // Include user ID for webhook processing
-          type: 'founding_member_schedule'
+          user_id: userId,
+          type: 'founding_member_one_time',
+          founding_member_start_date: new Date().toISOString(),
+          founding_member_end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
         }
       });
 
-      console.log('✅ Created checkout session:', session.id);
+      console.log('✅ Created one-time payment session:', session.id);
 
-      // Step 5: Update user with session and schedule IDs
+      // Step 4: Update user with founding member details
       if (userId) {
         try {
           const { error: updateError } = await supabase
             .from('users')
             .update({
               stripe_session_id: session.id,
-              stripe_subscription_schedule_id: schedule.id,
+              founding_member_payment_session_id: session.id,
+              founding_member: true,
               founding_member_purchased_at: new Date().toISOString(),
-              founding_member_transition_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+              founding_member_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
               subscription_plan: 'Founding Member',
               subscription_status: 'active',
-              founding_member: true,
+              subscription_type: 'founding_member_one_time',
               updated_at: new Date().toISOString()
             })
             .eq('id', userId);
 
           if (updateError) {
-            console.error('⚠️ Error updating user with session data:', updateError);
+            console.error('⚠️ Error updating user with founding member data:', updateError);
           } else {
-            console.log('✅ Updated user with session and schedule IDs');
+            console.log('✅ Updated user with founding member details');
           }
         } catch (updateError) {
-          console.error('⚠️ Error updating user with session data:', updateError);
+          console.error('⚠️ Error updating user with founding member data:', updateError);
         }
       }
 
       return new Response(
         JSON.stringify({ 
           url: session.url,
-          scheduleId: schedule.id,
           customerId: customer.id,
           sessionId: session.id,
           userId: userId
@@ -320,12 +277,12 @@ serve(async (req) => {
           } 
         }
       )
-    } catch (scheduleError) {
-      console.error('❌ Error creating subscription schedule:', scheduleError);
-      throw new Error(`Failed to create subscription schedule: ${scheduleError.message}`);
+    } catch (sessionError) {
+      console.error('❌ Error creating checkout session:', sessionError);
+      throw new Error(`Failed to create checkout session: ${sessionError.message}`);
     }
   } catch (error) {
-    console.error('❌ Error creating founding member schedule:', error);
+    console.error('❌ Error creating founding member payment:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
